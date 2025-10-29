@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 
 export default function LandingPage({ onNavigateToQuizzes }) {
   return (
@@ -13,12 +14,13 @@ export default function LandingPage({ onNavigateToQuizzes }) {
             <a href="#about" className="text-gray-700 hover:text-blue-600 transition">
               About
             </a>
+             <Link to="/quiz">
             <button
               onClick={onNavigateToQuizzes}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition"
             >
               Start Quiz
-            </button>
+            </button></Link>
           </nav>
         </div>
       </header>
@@ -34,12 +36,13 @@ export default function LandingPage({ onNavigateToQuizzes }) {
           <p className="text-lg text-white mb-8">
             Challenge yourself and improve your skills with exciting quizzes.
           </p>
+          <Link to="/quiz">
           <button
-            onClick={onNavigateToQuizzes}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-lg transition transform hover:scale-105"
           >
             Start Now
           </button>
+          </Link>
         </div>
 
       {/* Quizzes Section */}
@@ -49,16 +52,14 @@ export default function LandingPage({ onNavigateToQuizzes }) {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             
-            <QuizCard title="QUIZ#1" subtitle="Computer System Servicing" onStartQuiz={onNavigateToQuizzes} />
+            <QuizCard title="QUIZ#1" subtitle="Computer System Servicing"/>
             
-            <QuizCard title="QUIZ#2" subtitle="System Unit" onStartQuiz={onNavigateToQuizzes} />
+            <QuizCard title="QUIZ#2" subtitle="System Unit"/>
             
-            <QuizCard title="QUIZ#3" subtitle="ML 1v1 with Sir Je" onStartQuiz={onNavigateToQuizzes} />
+            <QuizCard title="QUIZ#3" subtitle="ML 1v1 with Sir Je"/>
           </div>
         </div>
       </section>
-
-
 
 
 
@@ -72,7 +73,7 @@ export default function LandingPage({ onNavigateToQuizzes }) {
   )
 }
 
-function QuizCard({ title, subtitle, onStartQuiz }) {
+function QuizCard({ title, subtitle }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition">
       {/* Card Image - Geometric Pattern */}
@@ -103,12 +104,13 @@ function QuizCard({ title, subtitle, onStartQuiz }) {
       <div className="p-6 text-center">
         <h4 className="text-xl font-bold text-gray-900 mb-2">{title}</h4>
         <p className="text-gray-600 mb-6">{subtitle}</p>
+        <Link to="/quiz">
         <button
-          onClick={onStartQuiz}
           className="w-full bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded transition"
         >
           START QUIZ
         </button>
+        </Link>
       </div>
     </div>
   )

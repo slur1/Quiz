@@ -1,11 +1,13 @@
 import { useState } from "react";
 import "../App.css";
+import { Link } from "react-router-dom"
 
-export default function QuizDescription({ onBackToLanding, onStartQuiz }) {
+export default function QuizDescription({ onStartQuiz }) {
   const [showModal, setShowModal] = useState(false)
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    email: "",
     section: "",
   })
 
@@ -32,12 +34,13 @@ export default function QuizDescription({ onBackToLanding, onStartQuiz }) {
         </p>
 
         <div className="flex gap-4">
+        <Link to="/landingpage">
           <button
-            onClick={onBackToLanding}
             className="bg-gray-600 hover:bg-gray-700 px-6 py-2 rounded-lg"
           >
             Back
           </button>
+        </Link>
           <button
             onClick={() => setShowModal(true)} // 🔥 ito magbubukas ng modal
             className="bg-cyan-600 hover:bg-cyan-700 px-6 py-2 rounded-lg"
@@ -51,7 +54,7 @@ export default function QuizDescription({ onBackToLanding, onStartQuiz }) {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-2xl shadow-2xl max-w-md w-full border border-slate-700 animate-in fade-in">
-            <div className="bg-gradient-to-r from-cyan-600 to-blue-600 p-6">
+            <div className="bg-gradient-to-r from-cyan-600 to-blue-600 p-6 rounded-t-2xl">
               <h2 className="text-2xl font-bold text-white">Start Quiz</h2>
             </div>
 
@@ -85,6 +88,20 @@ export default function QuizDescription({ onBackToLanding, onStartQuiz }) {
               </div>
 
               <div>
+                <label className="block text-white font-semibold mb-2">CES Email</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-50 transition-all"
+                  placeholder="Enter CES Email"
+                />
+              </div>
+
+              <div>
                 <label className="block text-white font-semibold mb-2">Section</label>
                 <select
                   required
@@ -92,7 +109,7 @@ export default function QuizDescription({ onBackToLanding, onStartQuiz }) {
                   onChange={(e) =>
                     setFormData({ ...formData, section: e.target.value })
                   }
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-50 transition-all"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-50 transition-all p-px"
                 >
                   <option value="">Select a section</option>
                   <option value="A">Section A</option>
