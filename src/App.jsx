@@ -1,27 +1,22 @@
-import { useState } from "react"
 import LandingPage from "./Pages/LandingPage"
 import QuizDescription from "./Pages/QuizDescription"
 import QuizPage from "./Pages/QuizPage"
-
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Error from "./Pages/404"
 export default function App() {
-  const [stage, setStage] = useState("landing")
 
   return (
     <>
-      {stage === "landing" && (
-        <LandingPage onNavigateToQuizzes={() => setStage("quizDescription")} />
-      )}
 
-      {stage === "quizDescription" && (
-        <QuizDescription 
-          onBackToLanding={() => setStage("landing")} 
-          onStartQuiz={() => setStage("quiz")} 
-        />
-      )}
+    <BrowserRouter>
+      <Routes>
+        <Route path ="*" element ={<Error/>} />
+        <Route path ="/landingpage" element ={<LandingPage/>} />
+        <Route path ="/quiz" element ={<QuizDescription/>} />
+        <Route path ="/quizstart" element ={<QuizPage/>} />
+      </Routes>
+    </BrowserRouter>
 
-      {stage === "quiz" && (
-        <QuizPage onGoHome={() => setStage("landing")} />
-      )}
     </>
   )
 }
