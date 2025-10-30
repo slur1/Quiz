@@ -1,25 +1,37 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import "../App.css";
 
-export default function QuizPage({ onGoHome }) {
+export default function QuizPage() {
+//   sa admin yung paglagay ng questions dapat may mga input field yung questions, answers,
+// timelimit and drop down type, and kapagg multiple choice
+
+      const [quizUser, setQuizUser] = useState(null)
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("quizUser")
+    if (storedUser) {
+      setQuizUser(JSON.parse(storedUser))
+    }
+  }, [])
+
   const quizData = [
     {
       type: "enumeration",
       question: "Enumerate the main components of a computer system.",
       answers: ["CPU", "RAM", "Storage", "Motherboard"],
-      timeLimit: 90,
+      timeLimit: 60,
     },
     {
       type: "enumeration",
       question: "List the types of computer memory.",
       answers: ["RAM", "ROM", "Cache", "Virtual Memory"],
-      timeLimit: 90,
+      timeLimit: 60,
     },
     {
       type: "enumeration",
       question: "Enumerate the steps in computer maintenance.",
       answers: ["Cleaning", "Updating", "Defragmentation", "Backup"],
-      timeLimit: 90,
+      timeLimit: 60,
     },
     {
       type: "multiple-choice",
@@ -56,25 +68,25 @@ export default function QuizPage({ onGoHome }) {
       type: "identification",
       question: "What is the name of the cooling device used in computers?",
       answer: "fan",
-      timeLimit: 60,
+      timeLimit: 40,
     },
     {
       type: "identification",
       question: "Identify the device that converts AC power to DC power.",
       answer: "power supply",
-      timeLimit: 60,
+      timeLimit: 40,
     },
     {
       type: "identification",
       question: "What is the name of the circuit board that holds the CPU?",
       answer: "motherboard",
-      timeLimit: 60,
+      timeLimit: 40,
     },
     {
       type: "identification",
       question: "Identify the storage device that uses spinning platters.",
       answer: "hard drive",
-      timeLimit: 60,
+      timeLimit: 40,
     },
   ];
 
@@ -117,12 +129,12 @@ export default function QuizPage({ onGoHome }) {
     }
   };
 
-  const handlePrev = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(currentQuestion - 1);
-      setTimeLeft(quizData[currentQuestion - 1].timeLimit);
-    }
-  };
+  // const handlePrev = () => {
+  //   if (currentQuestion > 0) {
+  //     setCurrentQuestion(currentQuestion - 1);
+  //     setTimeLeft(quizData[currentQuestion - 1].timeLimit);
+  //   }
+  // };
 
   const handleSubmit = () => {
     let totalScore = 0;
@@ -155,7 +167,7 @@ export default function QuizPage({ onGoHome }) {
           <h2 className="text-3xl font-bold mb-4">Thank You!</h2>
           <p className="text-slate-400 mb-6">Your responses have been recorded.</p>
           <button
-            onClick={onGoHome}
+           
             className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
           >
             Back to Home
@@ -185,118 +197,101 @@ export default function QuizPage({ onGoHome }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-cyan-400">Quiz #{1}</h1>
-          <p className="text-slate-400">
-            Question {currentQuestion + 1} of {quizData.length}
-          </p>
-        </div>
+    <>
 
-        {/* Progress bar */}
-        <div className="w-full bg-slate-700 h-2 rounded-full mb-6">
-          <div
-            className="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full transition-all"
-            style={{
-              width: `${((currentQuestion + 1) / quizData.length) * 100}%`,
-            }}
-          ></div>
-        </div>
-
-        {/* Question */}
-        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
-          <div className="flex justify-between mb-4">
-            <h2 className="text-xl font-bold">{question.question}</h2>
-            <div className="text-right">
-              <p className="text-slate-400 text-xs">Time Left</p>
-              <p
-                className={`text-2xl font-bold ${
-                  timeLeft <= 5
-                    ? "text-red-500"
-                    : timeLeft <= 10
-                    ? "text-yellow-400"
-                    : "text-cyan-400"
-                }`}
-              >
-                {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
-                {String(timeLeft % 60).padStart(2, "0")}
+      {quizUser ? (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
+          <div className="max-w-2xl mx-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-1xl font-bold text-cyan-400">{quizUser.firstName} {quizUser.lastName}</h1>
+              <h1 className="text-2xl font-bold text-cyan-400">Quiz #{1}</h1>
+              <p className="text-slate-400">
+                Question {currentQuestion + 1} of {quizData.length}
               </p>
             </div>
-          </div>
 
-          {/* Options / Inputs */}
-          {question.type === "enumeration" && (
-            <textarea
-              className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
-              rows={5}
-              placeholder="Enter your answers, one per line..."
-              value={userAnswers[currentQuestion]?.join("\n") || ""}
-              onChange={(e) =>
-                handleAnswerChange(
-                  e.target.value.split("\n").filter((a) => a.trim())
-                )
-              }
-            />
-          )}
-
-          {question.type === "multiple-choice" && (
-            <div className="space-y-3">
-              {question.options.map((opt, i) => (
-                <button
-                  key={i}
-                  className={`w-full text-left px-4 py-3 rounded-lg border ${
-                    userAnswers[currentQuestion] === i
-                      ? "bg-cyan-600 border-cyan-600"
-                      : "bg-slate-700 border-slate-600 hover:border-cyan-400"
-                  }`}
-                  onClick={() => handleAnswerChange(i)}
-                >
-                  {String.fromCharCode(65 + i)}. {opt}
-                </button>
-              ))}
+            {/* Progress bar */}
+            <div className="w-full bg-slate-700 h-2 rounded-full mb-6">
+              <div
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full transition-all"
+                style={{
+                  width: `${((currentQuestion + 1) / quizData.length) * 100}%`,
+                }}
+              ></div>
             </div>
-          )}
 
-          {question.type === "identification" && (
-            <input
-              type="text"
-              className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
-              placeholder="Type your answer..."
-              value={userAnswers[currentQuestion] || ""}
-              onChange={(e) => handleAnswerChange(e.target.value)}
-            />
-          )}
-        </div>
+            {/* Question */}
+            <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
+              <div className="flex justify-between mb-4">
+                <h2 className="text-xl font-bold">{question.question}</h2>
+                <div className="text-right">
+                  <p className="text-slate-400 text-xs">Time Left</p>
+                  <p
+                    className={`text-2xl font-bold ${
+                      timeLeft <= 5
+                        ? "text-red-500"
+                        : timeLeft <= 10
+                        ? "text-yellow-400"
+                        : "text-cyan-400"
+                    }`}
+                  >
+                    {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
+                    {String(timeLeft % 60).padStart(2, "0")}
+                  </p>
+                </div>
+              </div>
 
-        {/* Navigation */}
-        <div className="flex gap-4">
-  <button
-    onClick={handlePrev}
-    disabled={currentQuestion === 0}
-    className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 py-3 rounded-lg disabled:opacity-50"
-  >
-    
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-5 w-5"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-    </svg>
-    Previous
-  </button>
+              {/* Options / Inputs */}
+              {question.type === "enumeration" && (
+                <textarea
+                  className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
+                  rows={5}
+                  placeholder="Enter your answers, one per line..."
+                  value={userAnswers[currentQuestion]?.join("\n") || ""}
+                  onChange={(e) =>
+                    handleAnswerChange(
+                      e.target.value.split("\n").filter((a) => a.trim())
+                    )
+                  }
+                />
+              )}
 
-  <button
-    onClick={handleNext}
-    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
-  >
-    {currentQuestion === quizData.length - 1 ? "Submit Quiz" : (
-      <>
-        Next
+              {question.type === "multiple-choice" && (
+                <div className="space-y-3">
+                  {question.options.map((opt, i) => (
+                    <button
+                      key={i}
+                      className={`w-full text-left px-4 py-3 rounded-lg border ${
+                        userAnswers[currentQuestion] === i
+                          ? "bg-cyan-600 border-cyan-600"
+                          : "bg-slate-700 border-slate-600 hover:border-cyan-400"
+                      }`}
+                      onClick={() => handleAnswerChange(i)}
+                    >
+                      {String.fromCharCode(65 + i)}. {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {question.type === "identification" && (
+                <input
+                  type="text"
+                  className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
+                  placeholder="Type your answer..."
+                  value={userAnswers[currentQuestion] || ""}
+                  onChange={(e) => handleAnswerChange(e.target.value)}
+                />
+              )}
+            </div>
+
+            {/* Navigation */}
+            <div className="flex gap-4">
+      {/* <button
+        onClick={handlePrev}
+        disabled={currentQuestion === 0}
+        className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 py-3 rounded-lg disabled:opacity-50"
+      >
         
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -306,14 +301,40 @@ export default function QuizPage({ onGoHome }) {
           stroke="currentColor"
           strokeWidth={2}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
-      </>
-    )}
-  </button>
-</div>
+        Previous
+      </button> */}
 
-      </div>
+      <button
+        onClick={handleNext}
+        className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
+      >
+        {currentQuestion === quizData.length - 1 ? "Submit Quiz" : (
+          <>
+            Next
+            
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </>
+        )}
+      </button>
     </div>
+
+          </div>
+        </div>
+      ) 
+    : (
+        <p>Loading user info...</p>
+      )}
+    </>
   );
 }
