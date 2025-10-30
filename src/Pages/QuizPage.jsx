@@ -200,7 +200,8 @@ export default function QuizPage() {
     <>
 
       {quizUser ? (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
+      <>
+        <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
           <div className="max-w-2xl mx-auto">
             <div className="flex justify-between items-center mb-4">
               <h1 className="text-1xl font-bold text-cyan-400">{quizUser.firstName} {quizUser.lastName}</h1>
@@ -286,51 +287,38 @@ export default function QuizPage() {
             </div>
 
             {/* Navigation */}
-            <div className="flex gap-4">
-      {/* <button
-        onClick={handlePrev}
-        disabled={currentQuestion === 0}
-        className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 py-3 rounded-lg disabled:opacity-50"
-      >
-        
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        Previous
-      </button> */}
-
-      <button
-        onClick={handleNext}
-        className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
-      >
-        {currentQuestion === quizData.length - 1 ? "Submit Quiz" : (
-          <>
-            Next
-            
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </>
-        )}
-      </button>
-    </div>
+        <div className="flex gap-4">
+          <button
+            onClick={handleNext}
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
+          >
+            {currentQuestion === quizData.length - 1 ? "Submit Quiz" : (
+              <>
+                Next
+                
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </>
+            )}
+          </button>
+        </div>
 
           </div>
         </div>
+      <footer className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p>© 2025 TLE Quiz — All Rights Reserved. Made by Sir Je (<b>Designer of the web</b>) and Sir Ajhay (<b>Engineer of the web</b>)</p>
+        </div>
+      </footer>
+      </>
       ) 
     : (
         <p>Loading user info...</p>

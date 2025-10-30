@@ -27,7 +27,11 @@ export default function QuizDescription() {
         icon: "success",
         title: "Welcome!",
         text: `Hi ${formData.firstName} ${formData.lastName}, you may now start your quiz.`,
-        confirmButtonColor: "#06b6d4",
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        timerProgressBar: true,
+        timer: 2500,
         background: "#334155", 
         color: "#ffffff",
       });
@@ -79,7 +83,7 @@ export default function QuizDescription() {
   return (
     <>
       {/* Main UI */}
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white">
+      <div className="min-h-[92vh] flex flex-col items-center justify-center bg-slate-900 text-white">
         <h1 className="text-4xl font-bold mb-4">Quiz #1 — Computer System Servicing</h1>
         <p className="text-lg mb-8">
           Test your knowledge about computer hardware and system components!
@@ -101,6 +105,11 @@ export default function QuizDescription() {
           </button>
         </div>
       </div>
+       <footer className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p>© 2025 TLE Quiz — All Rights Reserved. Made by Sir Je (<b>Designer of the web</b>) and Sir Ajhay (<b>Engineer of the web</b>)</p>
+        </div>
+      </footer>
 
       {/* Registration Modal */}
       {showModal && (
