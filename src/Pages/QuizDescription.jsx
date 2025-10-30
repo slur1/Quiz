@@ -1,29 +1,81 @@
 import { useState } from "react";
 import "../App.css";
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
+import { postToEndpoint } from "../components/apiService";
+import Swal from "sweetalert2";
 
-export default function QuizDescription({ onStartQuiz }) {
-  const [showModal, setShowModal] = useState(false)
+export default function QuizDescription() {
+  const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     section: "",
-  })
+  });
+  const [Error, setError] = useState("");
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");  
 
-    
-    localStorage.setItem("quizUser", JSON.stringify(formData))
+   try {
+    const response = await postToEndpoint("check_student.php", formData);
+    const data = response.data;
+    if (response.data.status === "success") {
+      await Swal.fire({
+        icon: "success",
+        title: "Welcome!",
+        text: `Hi ${formData.firstName} ${formData.lastName}, you may now start your quiz.`,
+        confirmButtonColor: "#06b6d4",
+        background: "#334155", 
+        color: "#ffffff",
+      });
 
-    
-    setShowModal(false)
+      localStorage.setItem("quizUser", JSON.stringify(formData));
+      setShowModal(false);
+      navigate("/quizstart");
+    }  else if (data.status === "error") {
+      let alertTitle = "";
+      let alertText = data.message;
 
-    
-    onStartQuiz()
+      switch (data.field) {
+        case "name":
+          alertTitle = "Invalid Name";
+          break;
+        case "email":
+          alertTitle = "Incorrect Email";
+          break;
+        case "section":
+          alertTitle = "Incorrect Section";
+          break;
+        default:
+          alertTitle = "Error";
+      }
+
+      Swal.fire({
+        icon: "error",
+        title: alertTitle,
+        text: alertText,
+        confirmButtonColor: "#ef4444",
+        background: "#334155",
+        color: "#ffffff",
+        customClass: {
+          popup: "rounded-2xl shadow-xl border border-slate-700",
+          confirmButton: "text-white font-semibold",
+        },
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    Swal.fire({
+      icon: "error",
+      title: "Server Error",
+      text: "There was a problem connecting to the server. Please try again later.",
+      confirmButtonColor: "#ef4444",
+    });
   }
-
+  };
   return (
     <>
       {/* Main UI */}
@@ -112,10 +164,9 @@ export default function QuizDescription({ onStartQuiz }) {
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-50 transition-all p-px"
                 >
                   <option value="">Select a section</option>
-                  <option value="A">Section A</option>
-                  <option value="B">Section B</option>
-                  <option value="C">Section C</option>
-                  <option value="D">Section D</option>
+                  <option value="1">8 - Matthias</option>
+                  <option value="2">8 - Micah</option>
+                  <option value="3">8 - Obadiah</option>
                 </select>
               </div>
 
