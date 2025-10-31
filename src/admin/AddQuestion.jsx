@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { getFromEndpoint, postToEndpoint } from "../components/apiService";
 
 export default function AddQuestion() {
+  const [subjects, setSubjects] = useState([]); // 🆕 for subjects
+  const [subject, setSubject] = useState("");   // 🆕 selected subject
   const [quizzes, setQuizzes] = useState([]);
   const [quizno, setQuizno] = useState("");
   const [questions, setQuestions] = useState([
@@ -14,8 +16,17 @@ export default function AddQuestion() {
     },
   ]);
 
-  // Fetch quizzes from backend
   useEffect(() => {
+    // Fetch subjects
+    getFromEndpoint("fetch_subjects.php")
+      .then((res) => {
+        if (res.data.status === "success") {
+          setSubjects(res.data.data);
+        }
+      })
+      .catch((err) => console.error("Error fetching subjects:", err));
+
+    // Fetch quizzes
     getFromEndpoint("fetch_quizzes.php")
       .then((res) => {
         if (res.data.status === "success") {
@@ -80,8 +91,13 @@ export default function AddQuestion() {
   };
 
   // Submit all questions
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!subject) {
+      alert("Please select a subject!");
+      return;
+    }
 
     if (!quizno) {
       alert("Please select a quiz number!");
@@ -89,13 +105,11 @@ const handleSubmit = async (e) => {
     }
 
     try {
-      const response = await postToEndpoint(
-        "insert_questions.php",
-        {
-          quiz_no: quizno,
-          questions: questions,
-        }
-      );
+      const response = await postToEndpoint("insert_questions.php", {
+        subject_name: subject, // 🆕 include subject
+        quiz_no: quizno,
+        questions: questions,
+      });
 
       if (response.data.status === "success") {
         alert("✅ All questions saved successfully!");
@@ -123,6 +137,26 @@ const handleSubmit = async (e) => {
         Add Multiple Questions
       </h2>
 
+      {/* Subject Selector */}
+      <div className="mb-6">
+        <label className="block font-medium text-gray-300 mb-2">
+          Select Subject:
+        </label>
+        <select
+          className="w-full shadow-lg bg-slate-700 border border-gray-500 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          required
+        >
+          <option value="">Select Subject</option>
+          {subjects.map((subj) => (
+            <option key={subj.subject_id} value={subj.subject_name}>
+              {subj.subject_name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Quiz Selector */}
       <div className="mb-6">
         <label className="block font-medium text-gray-300 mb-2">
@@ -134,10 +168,10 @@ const handleSubmit = async (e) => {
           onChange={(e) => setQuizno(e.target.value)}
           required
         >
-          <option value="">-- Select Quiz Number --</option>
+          <option value="">Select Quiz Number</option>
           {quizzes.map((quiz) => (
             <option key={quiz.quiz_id} value={quiz.quiz_no}>
-              Quiz #{quiz.quiz_no}
+              Quiz #{quiz.quiz_no} - {quiz.title}
             </option>
           ))}
         </select>
