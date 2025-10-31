@@ -15,7 +15,7 @@ export default function App() {
         <Route path ="*" element ={<Error/>} />
         <Route path ="/landingpage" element ={<LandingPage/>} />
         <Route path ="/quiz/:quiz_id" element ={<QuizDescription/>} />
-        <Route path ="/quizstart" element ={<QuizPage/>} />
+        <Route path ="/quizstart/:quiz_id" element ={<QuizPage/>} />
         <Route path ="/addingquestions" element ={<AddQuestion/>} />
       </Routes>
     </BrowserRouter>

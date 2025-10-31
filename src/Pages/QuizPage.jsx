@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import "../App.css";
 import { getFromEndpoint } from "../components/apiService";
+import { useParams } from "react-router-dom";
 
 export default function QuizPage() {
-
+  const { quiz_id } = useParams();
   const [quizUser, setQuizUser] = useState(null);
   const [quizData, setQuizData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +26,6 @@ export default function QuizPage() {
 useEffect(() => {
   const fetchQuestions = async () => {
     try {
-      const quiz_id = 1;
       const res = await getFromEndpoint(`get_questions.php?quiz_id=${quiz_id}`);
       console.log("Fetched questions:", res.data); 
       if (res.data.status === "success" && Array.isArray(res.data.data)) {
@@ -110,28 +110,79 @@ useEffect(() => {
     }
   };
 
-  const handleSubmit = () => {
-    let totalScore = 0;
+const handleSubmit = () => {
+  let totalScore = 0;
+  let totalPossible = 0;
 
-    quizData.forEach((q, i) => {
-      const ans = userAnswers[i];
-      if (q.type === "multiple-choice" && ans === q.correct) {
+  quizData.forEach((q, i) => {
+    const ans = userAnswers[i];
+
+    if (q.type === "multiple-choice") {
+      totalPossible += 1;
+      if (ans === q.correct) totalScore += 1;
+
+    } else if (q.type === "identification") {
+      totalPossible += 1;
+      if (ans?.toLowerCase().trim() === q.answer.toLowerCase().trim()) {
         totalScore += 1;
-      } else if (q.type === "identification" && ans?.toLowerCase() === q.answer.toLowerCase()) {
-        totalScore += 1;
-      } else if (q.type === "enumeration") {
-        const matches = ans?.filter((a) =>
-          q.answers.some((c) => c.toLowerCase() === a.toLowerCase())
-        ).length;
-        totalScore += (matches || 0) / q.answers.length;
       }
-    });
 
-    setScore(totalScore);
-    setShowScore(true);
-  };
+    } else if (q.type === "enumeration") {
+      // ✅ Normalize correct answers
+      const correctAnswers = (q.answers || [])
+        .map((a) => a.toLowerCase().trim())
+        .filter((a) => a !== "");
+      totalPossible += correctAnswers.length;
 
-  const percentage = Math.round((score / quizData.length) * 100);
+      // ✅ Normalize user input (may be array or string)
+      let userInput = [];
+      if (Array.isArray(ans)) {
+        userInput = ans.map((a) => a.toLowerCase().trim());
+      } else if (typeof ans === "string") {
+        userInput = ans
+          .split(/[\n,]/)
+          .map((a) => a.toLowerCase().trim())
+          .filter((a) => a !== "");
+      }
+
+      console.log("✅ ENUM CHECK:", { correctAnswers, userInput }); // 🔍 debug log
+
+      // ✅ Count exact matches (case-insensitive)
+      let matchCount = 0;
+      correctAnswers.forEach((correct) => {
+        if (userInput.includes(correct)) {
+          matchCount++;
+        }
+      });
+
+      console.log(
+        `Question ${i + 1}: ${matchCount}/${correctAnswers.length} correct`
+      );
+
+      totalScore += matchCount;
+    }
+  });
+
+  console.log("🎯 FINAL SCORE:", totalScore, "of", totalPossible);
+
+  setScore({ totalScore, totalPossible });
+  setShowScore(true);
+};
+
+
+
+
+
+// const totalPossiblePoints = quizData.reduce((sum, q) => {
+//   if (q.type === "enumeration") return sum + q.answers.length;
+//   return sum + 1;
+// }, 0);
+
+const percentage = score.totalPossible
+  ? Math.round((score.totalScore / score.totalPossible) * 100)
+  : 0;
+
+
   const question = quizData[currentQuestion] || null;
 
 
@@ -172,7 +223,7 @@ if (showScore) {
 
         <p className="text-slate-400 mb-2">You got</p>
         <p className="text-5xl font-bold text-cyan-400 mb-2">
-          {Math.round(score)} / {quizData.length}
+          {score.totalScore} / {score.totalPossible}
         </p>
         <p className="text-slate-400 mb-4">correct answers</p>
         <p className="text-3xl font-semibold text-cyan-300">{percentage}%</p>
@@ -253,13 +304,13 @@ if (showScore) {
                   <textarea
                     className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
                     rows={5}
-                    placeholder="Enter your answers, one per line..."
-                    value={userAnswers[currentQuestion]?.join("\n") || ""}
-                    onChange={(e) =>
-                      handleAnswerChange(
-                        e.target.value.split("\n").filter((a) => a.trim())
-                      )
+                    placeholder="Enter your answers, separated by commas or new lines..."
+                    value={
+                      Array.isArray(userAnswers[currentQuestion])
+                        ? userAnswers[currentQuestion].join(", ")
+                        : userAnswers[currentQuestion] || ""
                     }
+                    onChange={(e) => handleAnswerChange(e.target.value)} 
                   />
                 )}
 

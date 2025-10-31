@@ -144,7 +144,7 @@ export default function AddQuestion() {
     <div className="px-4">
       <div className="max-w-4xl mx-auto mt-10 bg-slate-800 rounded-2xl border border-slate-700 shadow-lg p-8">
         <h2 className="text-2xl font-semibold text-center mb-6 text-white">
-          Add Multiple Questions
+          Add Questions
         </h2>
 
         {/* Subject Selector */}
@@ -158,7 +158,7 @@ export default function AddQuestion() {
             onChange={(e) => setSubject(e.target.value)}
             required
           >
-            <option value="" disabled>Select Subject</option>
+            <option value="" disabled>-- Select Subject --</option>
             {subjects.map((subj) => (
               <option key={subj.subject_id} value={subj.subject_name}>
                 {subj.subject_name}
@@ -178,9 +178,9 @@ export default function AddQuestion() {
             onChange={(e) => setQuizno(e.target.value)}
             required
           >
-            <option value="" disabled>Select Quiz Number</option>
+            <option value="" disabled>-- Select Quiz Number --</option>
             {quizzes.map((quiz) => (
-              <option key={quiz.quiz_id} value={quiz.quiz_no}>
+              <option key={quiz.quiz_id} value={quiz.quiz_id}>
                 Quiz #{quiz.quiz_no} - {quiz.title}
               </option>
             ))}

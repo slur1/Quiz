@@ -62,7 +62,7 @@ export default function QuizDescription() {
 
       localStorage.setItem("quizUser", JSON.stringify(formData));
       setShowModal(false);
-      navigate("/quizstart");
+      navigate(`/quizstart/${quiz_id}`);
     }  else if (data.status === "error") {
       let alertTitle = "";
       let alertText = data.message;
