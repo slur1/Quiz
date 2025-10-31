@@ -62,7 +62,10 @@ export default function QuizDescription() {
 
       localStorage.setItem("quizUser", JSON.stringify(formData));
       setShowModal(false);
-      navigate(`/quizstart/${quiz_id}`);
+      const randomCode = Array.from(crypto.getRandomValues(new Uint8Array(32))) 
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+      navigate(`/quizstart/${randomCode}/${quiz_id}/${randomCode}`);
     }  else if (data.status === "error") {
       let alertTitle = "";
       let alertText = data.message;

@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { getFromEndpoint } from "../components/apiService";
 
 export default function LandingPage({ onNavigateToQuizzes }) {
    const [quizzes, setQuizzes] = useState([]);
-
   useEffect(() => {
     getFromEndpoint("fetch_quizzes.php")
       .then((res) => {
@@ -86,6 +85,15 @@ export default function LandingPage({ onNavigateToQuizzes }) {
 }
 
 function QuizCard({ quiz }) {
+  const navigate = useNavigate();
+
+  const handleStartQuiz = () => {
+    const randomCode = Array.from(crypto.getRandomValues(new Uint8Array(32))) // 64 chars
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    navigate(`/quiz/${randomCode}/${quiz.quiz_id}/${randomCode}`);
+  };
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition">
       {/* Card Image - Geometric Pattern */}
@@ -116,13 +124,12 @@ function QuizCard({ quiz }) {
       <div className="p-6 text-center">
         <h4 className="text-xl font-bold text-gray-900 mb-2">Quiz#{quiz.quiz_no}</h4>
         <p className="text-gray-600 mb-6">{quiz.title}</p>
-         <Link to={`/quiz/${quiz.quiz_id}`}>
         <button
+          onClick={handleStartQuiz}
           className="w-full bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded transition"
         >
           START QUIZ
         </button>
-        </Link>
       </div>
     </div>
   )
