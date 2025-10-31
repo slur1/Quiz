@@ -26,23 +26,25 @@ try {
     $stmt = $conn->prepare($query);
 
     foreach ($questions as $q) {
-        $type = $q["questionType"];
-        $text = $q["questionText"];
-        $correct = $q["correctAnswer"];
+        $type = $q["questionType"] ?? null;
+        $text = $q["questionText"] ?? null;
+        $correct = $q["correctAnswer"] ?? null;
+        $timeLimit = $q["timeLimit"] ?? null;
 
-        // Default NULLs for all possible fields
+        // Default values for multiple choice
         $choiceA = $choiceB = $choiceC = $choiceD = null;
 
-        if ($type === "multiple") {
+        if ($type === "multiple" && isset($q["choices"])) {
             $choiceA = $q["choices"][0] ?? null;
             $choiceB = $q["choices"][1] ?? null;
             $choiceC = $q["choices"][2] ?? null;
             $choiceD = $q["choices"][3] ?? null;
-        } elseif ($type === "enumeration") {
-            // Combine enumeration answers into one string (e.g., comma-separated)
+        } elseif ($type === "enumeration" && isset($q["enumerationAnswers"])) {
+            // Combine enumeration answers (comma separated)
             $correct = implode(", ", $q["enumerationAnswers"]);
         }
 
+        // Execute insert query
         $stmt->execute([
             ":quiz_no" => $quiz_no,
             ":subject_name" => $subject_name,
@@ -52,11 +54,12 @@ try {
             ":choice_b" => $choiceB,
             ":choice_c" => $choiceC,
             ":choice_d" => $choiceD,
-            ":correct_answer" => $correct
-            ":time_limit" => $q["timeLimit"],
+            ":correct_answer" => $correct,
+            ":time_limit" => $timeLimit,
         ]);
     }
 
+    // Commit transaction
     $conn->commit();
     echo json_encode(["status" => "success", "message" => "Questions inserted successfully"]);
 

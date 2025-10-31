@@ -1,6 +1,20 @@
+import { useEffect, useState } from "react";
 import { Link } from 'react-router-dom'
+import { getFromEndpoint } from "../components/apiService";
 
 export default function LandingPage({ onNavigateToQuizzes }) {
+   const [quizzes, setQuizzes] = useState([]);
+
+  useEffect(() => {
+    getFromEndpoint("fetch_quizzes.php")
+      .then((res) => {
+        if (res.data.status === "success") {
+          setQuizzes(res.data.data);
+        }
+      })
+      .catch((err) => console.error("Error fetching quizzes:", err));
+  }, []);
+
   return (
     <>
       {/* Header */}
@@ -14,7 +28,7 @@ export default function LandingPage({ onNavigateToQuizzes }) {
             <a href="#about" className="text-gray-700 hover:text-blue-600 transition">
               About
             </a>
-             <Link to="/quiz">
+             <Link to={`/quiz/1`}>
             <button
               onClick={onNavigateToQuizzes}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition"
@@ -36,7 +50,7 @@ export default function LandingPage({ onNavigateToQuizzes }) {
           <p className="text-lg text-white mb-8">
             Challenge yourself and improve your skills with exciting quizzes.
           </p>
-          <Link to="/quiz">
+          <Link to={`/quiz/1`}>
           <button
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-lg transition transform hover:scale-105"
           >
@@ -52,11 +66,9 @@ export default function LandingPage({ onNavigateToQuizzes }) {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             
-            <QuizCard title="QUIZ#1" subtitle="Computer System Servicing"/>
-            
-            <QuizCard title="QUIZ#2" subtitle="System Unit"/>
-            
-            <QuizCard title="QUIZ#3" subtitle="ML 1v1 with Sir Je"/>
+             {quizzes.map((quiz) => (
+                <QuizCard key={quiz.quiz_id} quiz={quiz} />
+              ))}
           </div>
         </div>
       </section>
@@ -73,7 +85,7 @@ export default function LandingPage({ onNavigateToQuizzes }) {
   )
 }
 
-function QuizCard({ title, subtitle }) {
+function QuizCard({ quiz }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition">
       {/* Card Image - Geometric Pattern */}
@@ -102,9 +114,9 @@ function QuizCard({ title, subtitle }) {
 
       {/* Card Content */}
       <div className="p-6 text-center">
-        <h4 className="text-xl font-bold text-gray-900 mb-2">{title}</h4>
-        <p className="text-gray-600 mb-6">{subtitle}</p>
-        <Link to="/quiz">
+        <h4 className="text-xl font-bold text-gray-900 mb-2">Quiz#{quiz.quiz_no}</h4>
+        <p className="text-gray-600 mb-6">{quiz.title}</p>
+         <Link to={`/quiz/${quiz.quiz_id}`}>
         <button
           className="w-full bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded transition"
         >

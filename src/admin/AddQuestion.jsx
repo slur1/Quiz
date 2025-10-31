@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { getFromEndpoint, postToEndpoint } from "../components/apiService";
+import Swal from "sweetalert2";
 
 export default function AddQuestion() {
-  const [subjects, setSubjects] = useState([]); // 🆕 for subjects
-  const [subject, setSubject] = useState("");   // 🆕 selected subject
+  const [subjects, setSubjects] = useState([]);
+  const [subject, setSubject] = useState("");
   const [quizzes, setQuizzes] = useState([]);
   const [quizno, setQuizno] = useState("");
   const [questions, setQuestions] = useState([
@@ -13,30 +14,24 @@ export default function AddQuestion() {
       choices: ["", "", "", ""],
       correctAnswer: "",
       enumerationAnswers: [""],
+      timeLimit: "", // 🕒 NEW FIELD
     },
   ]);
 
   useEffect(() => {
-    // Fetch subjects
     getFromEndpoint("fetch_subjects.php")
       .then((res) => {
-        if (res.data.status === "success") {
-          setSubjects(res.data.data);
-        }
+        if (res.data.status === "success") setSubjects(res.data.data);
       })
       .catch((err) => console.error("Error fetching subjects:", err));
 
-    // Fetch quizzes
     getFromEndpoint("fetch_quizzes.php")
       .then((res) => {
-        if (res.data.status === "success") {
-          setQuizzes(res.data.data);
-        }
+        if (res.data.status === "success") setQuizzes(res.data.data);
       })
       .catch((err) => console.error("Error fetching quizzes:", err));
   }, []);
 
-  // Add new question block
   const addQuestion = () => {
     setQuestions([
       ...questions,
@@ -46,32 +41,29 @@ export default function AddQuestion() {
         choices: ["", "", "", ""],
         correctAnswer: "",
         enumerationAnswers: [""],
+        timeLimit: "", // 🕒 NEW FIELD
       },
     ]);
   };
 
-  // Remove question block
   const removeQuestion = (index) => {
     const updated = [...questions];
     updated.splice(index, 1);
     setQuestions(updated);
   };
 
-  // Update a field in a specific question
   const handleQuestionChange = (index, field, value) => {
     const updated = [...questions];
     updated[index][field] = value;
     setQuestions(updated);
   };
 
-  // Update a choice (A–D)
   const handleChoiceChange = (qIndex, cIndex, value) => {
     const updated = [...questions];
     updated[qIndex].choices[cIndex] = value;
     setQuestions(updated);
   };
 
-  // Enumeration handling
   const addEnumeration = (qIndex) => {
     const updated = [...questions];
     updated[qIndex].enumerationAnswers.push("");
@@ -90,263 +82,296 @@ export default function AddQuestion() {
     setQuestions(updated);
   };
 
-  // Submit all questions
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!subject) {
-      alert("Please select a subject!");
-      return;
-    }
-
-    if (!quizno) {
-      alert("Please select a quiz number!");
-      return;
-    }
+    if (!subject) return alert("Please select a subject!");
+    if (!quizno) return alert("Please select a quiz number!");
 
     try {
       const response = await postToEndpoint("insert_questions.php", {
-        subject_name: subject, // 🆕 include subject
+        subject_name: subject,
         quiz_no: quizno,
         questions: questions,
       });
 
       if (response.data.status === "success") {
-        alert("✅ All questions saved successfully!");
-        setQuestions([
-          {
-            questionType: "",
-            questionText: "",
-            choices: ["", "", "", ""],
-            correctAnswer: "",
-            enumerationAnswers: [""],
-          },
-        ]);
-      } else {
-        alert("⚠️ Failed to save questions. Please try again.");
-      }
-    } catch (error) {
+          Swal.fire({
+            icon: "success",
+            title: "Saved Successfully!",
+            text: "All questions have been saved to the database.",
+            showConfirmButton: false,
+            background: "#334155", 
+            color: "#ffffff",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            timerProgressBar: true,
+            timer: 2000,
+          });
+
+          setQuestions([
+            {
+              questionType: "",
+              questionText: "",
+              choices: ["", "", "", ""],
+              correctAnswer: "",
+              enumerationAnswers: [""],
+              timeLimit: "",
+            },
+          ]);
+        } else {
+          Swal.fire({
+            icon: "warning",
+            title: "Save Failed",
+            text: "Something went wrong. Please try again.",
+            confirmButtonColor: "#3085d6",
+            background: "#334155", 
+            color: "#ffffff",
+          });
+        }
+      } catch (error) {
       console.error("Error saving questions:", error);
-      alert("❌ Error connecting to server.");
+        Swal.fire({
+          icon: "error",
+          title: "Connection Error",
+          text: "Could not connect to the server. Please check your network or backend.",
+          confirmButtonColor: "#d33",
+        });
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 bg-slate-800 rounded-2xl border border-slate-700 shadow-lg p-8">
-      <h2 className="text-2xl font-semibold text-center mb-6 text-white">
-        Add Multiple Questions
-      </h2>
+    <div className="px-4">
+      <div className="max-w-4xl mx-auto mt-10 bg-slate-800 rounded-2xl border border-slate-700 shadow-lg p-8">
+        <h2 className="text-2xl font-semibold text-center mb-6 text-white">
+          Add Multiple Questions
+        </h2>
 
-      {/* Subject Selector */}
-      <div className="mb-6">
-        <label className="block font-medium text-gray-300 mb-2">
-          Select Subject:
-        </label>
-        <select
-          className="w-full shadow-lg bg-slate-700 border border-gray-500 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          required
-        >
-          <option value="">Select Subject</option>
-          {subjects.map((subj) => (
-            <option key={subj.subject_id} value={subj.subject_name}>
-              {subj.subject_name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Quiz Selector */}
-      <div className="mb-6">
-        <label className="block font-medium text-gray-300 mb-2">
-          Select Quiz Number:
-        </label>
-        <select
-          className="w-full shadow-lg bg-slate-700 border border-gray-500 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
-          value={quizno}
-          onChange={(e) => setQuizno(e.target.value)}
-          required
-        >
-          <option value="">Select Quiz Number</option>
-          {quizzes.map((quiz) => (
-            <option key={quiz.quiz_id} value={quiz.quiz_no}>
-              Quiz #{quiz.quiz_no} - {quiz.title}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Questions Form */}
-      <form onSubmit={handleSubmit} className="space-y-10">
-        {questions.map((q, qIndex) => (
-          <div
-            key={qIndex}
-            className="p-6 bg-slate-700 border border-slate-600 rounded-xl shadow-md relative"
+        {/* Subject Selector */}
+        <div className="mb-6">
+          <label className="block font-medium text-gray-300 mb-2">
+            Select Subject:
+          </label>
+          <select
+            className="w-full shadow-lg bg-slate-700 border border-gray-500 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            required
           >
-            <h3 className="text-xl text-white font-semibold mb-4">
-              Question {qIndex + 1}
-            </h3>
+            <option value="" disabled>Select Subject</option>
+            {subjects.map((subj) => (
+              <option key={subj.subject_id} value={subj.subject_name}>
+                {subj.subject_name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            {/* Question Text */}
-            <label className="block text-white mb-2">Question:</label>
-            <textarea
-              className="w-full bg-slate-800 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-400 outline-none mb-4"
-              rows="3"
-              placeholder="Enter question text..."
-              value={q.questionText}
-              onChange={(e) =>
-                handleQuestionChange(qIndex, "questionText", e.target.value)
-              }
-              required
-            ></textarea>
+        {/* Quiz Selector */}
+        <div className="mb-6">
+          <label className="block font-medium text-gray-300 mb-2">
+            Select Quiz Number:
+          </label>
+          <select
+            className="w-full shadow-lg bg-slate-700 border border-gray-500 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
+            value={quizno}
+            onChange={(e) => setQuizno(e.target.value)}
+            required
+          >
+            <option value="" disabled>Select Quiz Number</option>
+            {quizzes.map((quiz) => (
+              <option key={quiz.quiz_id} value={quiz.quiz_no}>
+                Quiz #{quiz.quiz_no} - {quiz.title}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            {/* Question Type */}
-            <label className="block text-white mb-2">Question Type:</label>
-            <select
-              className="w-full bg-slate-800 border border-slate-600 text-white rounded-lg p-3 mb-4 focus:ring-2 focus:ring-blue-400 outline-none"
-              value={q.questionType}
-              onChange={(e) =>
-                handleQuestionChange(qIndex, "questionType", e.target.value)
-              }
-              required
+        {/* Questions */}
+        <form onSubmit={handleSubmit} className="space-y-10">
+          {questions.map((q, qIndex) => (
+            <div
+              key={qIndex}
+              className="p-6 bg-slate-700 border border-slate-600 rounded-xl shadow-md relative"
             >
-              <option value="">-- Select Type --</option>
-              <option value="multiple">Multiple Choice</option>
-              <option value="identification">Identification</option>
-              <option value="enumeration">Enumeration</option>
-            </select>
+              <h3 className="text-xl text-white font-semibold mb-4">
+                Question {qIndex + 1}
+              </h3>
 
-            {/* Multiple Choice */}
-            {q.questionType === "multiple" && (
-              <div className="mb-4 text-white">
-                <h4 className="font-medium mb-3">Choices</h4>
-                {["A", "B", "C", "D"].map((label, i) => (
-                  <div key={i} className="mb-2">
-                    <label className="mr-2">{label}.</label>
+              {/* Question Text */}
+              <label className="block text-white mb-2">Question:</label>
+              <textarea
+                className="w-full bg-slate-800 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-400 outline-none mb-4"
+                rows="3"
+                placeholder="Enter question text..."
+                value={q.questionText}
+                onChange={(e) =>
+                  handleQuestionChange(qIndex, "questionText", e.target.value)
+                }
+                required
+              ></textarea>
+
+              {/* Question Type */}
+              <label className="block text-white mb-2">Question Type:</label>
+              <select
+                className="w-full bg-slate-800 border border-slate-600 text-white rounded-lg p-3 mb-4 focus:ring-2 focus:ring-blue-400 outline-none"
+                value={q.questionType}
+                onChange={(e) =>
+                  handleQuestionChange(qIndex, "questionType", e.target.value)
+                }
+                required
+              >
+                <option value="" disabled>-- Select Type --</option>
+                <option value="multiple">Multiple Choice</option>
+                <option value="identification">Identification</option>
+                <option value="enumeration">Enumeration</option>
+              </select>
+
+              {/* Time Limit */}
+              <label className="block text-white mb-2">Time Limit (seconds):</label>
+              <input
+                type="number"
+                min="15"
+                className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 mb-4 text-white"
+                placeholder="Enter time limit (e.g., 30)"
+                value={q.timeLimit}
+                onChange={(e) =>
+                  handleQuestionChange(qIndex, "timeLimit", e.target.value)
+                }
+                required
+              />
+
+              {/* Multiple Choice */}
+              {q.questionType === "multiple" && (
+                <div className="mb-4 text-white">
+                  <h4 className="font-medium mb-3">Choices</h4>
+                  {["A", "B", "C", "D"].map((label, i) => (
+                    <div key={i} className="mb-2">
+                      <label className="mr-2">{label}.</label>
+                      <input
+                        type="text"
+                        placeholder={`Choice ${label}`}
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 mt-1"
+                        value={q.choices[i]}
+                        onChange={(e) =>
+                          handleChoiceChange(qIndex, i, e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                  ))}
+                  <div className="mt-3">
+                    <label className="font-medium text-white">
+                      Correct Answer (A, B, C, D):
+                    </label>
                     <input
                       type="text"
-                      placeholder={`Choice ${label}`}
+                      maxLength="1"
                       className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 mt-1"
-                      value={q.choices[i]}
+                      placeholder="Correct Answer"
+                      value={q.correctAnswer}
                       onChange={(e) =>
-                        handleChoiceChange(qIndex, i, e.target.value)
+                        handleQuestionChange(
+                          qIndex,
+                          "correctAnswer",
+                          e.target.value.toUpperCase()
+                        )
                       }
                       required
                     />
                   </div>
-                ))}
-                <div className="mt-3">
-                  <label className="font-medium text-white">
-                    Correct Answer (A, B, C, D):
-                  </label>
+                </div>
+              )}
+
+              {/* Identification */}
+              {q.questionType === "identification" && (
+                <div className="text-white mb-4">
+                  <label className="block mb-2">Correct Answer:</label>
                   <input
                     type="text"
-                    maxLength="1"
-                    className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 mt-1"
-                    placeholder="Correct Answer"
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2"
+                    placeholder="Enter correct answer..."
                     value={q.correctAnswer}
                     onChange={(e) =>
-                      handleQuestionChange(
-                        qIndex,
-                        "correctAnswer",
-                        e.target.value.toUpperCase()
-                      )
+                      handleQuestionChange(qIndex, "correctAnswer", e.target.value)
                     }
                     required
                   />
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Identification */}
-            {q.questionType === "identification" && (
-              <div className="text-white mb-4">
-                <label className="block mb-2">Correct Answer:</label>
-                <input
-                  type="text"
-                  className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2"
-                  placeholder="Enter correct answer..."
-                  value={q.correctAnswer}
-                  onChange={(e) =>
-                    handleQuestionChange(qIndex, "correctAnswer", e.target.value)
-                  }
-                  required
-                />
-              </div>
-            )}
+              {/* Enumeration */}
+              {q.questionType === "enumeration" && (
+                <div className="text-white">
+                  <h4 className="font-medium mb-3">Enumeration Answers</h4>
+                  {q.enumerationAnswers.map((ans, i) => (
+                    <div key={i} className="flex items-center gap-3 mb-3">
+                      <input
+                        type="text"
+                        className="flex-1 bg-slate-800 border border-slate-600 rounded-lg p-2"
+                        placeholder={`Answer ${i + 1}`}
+                        value={ans}
+                        onChange={(e) =>
+                          handleEnumerationChange(qIndex, i, e.target.value)
+                        }
+                        required
+                      />
+                      {q.enumerationAnswers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeEnumeration(qIndex, i)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addEnumeration(qIndex)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm"
+                  >
+                    + Add More
+                  </button>
+                </div>
+              )}
 
-            {/* Enumeration */}
-            {q.questionType === "enumeration" && (
-              <div className="text-white">
-                <h4 className="font-medium mb-3">Enumeration Answers</h4>
-                {q.enumerationAnswers.map((ans, i) => (
-                  <div key={i} className="flex items-center gap-3 mb-3">
-                    <input
-                      type="text"
-                      className="flex-1 bg-slate-800 border border-slate-600 rounded-lg p-2"
-                      placeholder={`Answer ${i + 1}`}
-                      value={ans}
-                      onChange={(e) =>
-                        handleEnumerationChange(qIndex, i, e.target.value)
-                      }
-                      required
-                    />
-                    {q.enumerationAnswers.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeEnumeration(qIndex, i)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
+              {/* Remove Question Button */}
+              {questions.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => addEnumeration(qIndex)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm"
+                  onClick={() => removeQuestion(qIndex)}
+                  className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm"
                 >
-                  + Add More
+                  Remove
                 </button>
-              </div>
-            )}
+              )}
+            </div>
+          ))}
 
-            {/* Remove Question Button */}
-            {questions.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeQuestion(qIndex)}
-                className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm"
-              >
-                Remove
-              </button>
-            )}
+          {/* Add New Question */}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={addQuestion}
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold"
+            >
+              + Add Another Question
+            </button>
           </div>
-        ))}
 
-        {/* Add New Question */}
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={addQuestion}
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold"
-          >
-            + Add Another Question
-          </button>
-        </div>
-
-        {/* Save All */}
-        <div className="text-center">
-          <button
-            type="submit"
-            className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-8 py-3 rounded-lg text-white font-semibold"
-          >
-            Save All Questions
-          </button>
-        </div>
-      </form>
+          {/* Save All */}
+          <div className="text-center">
+            <button
+              type="submit"
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-8 py-3 rounded-lg text-white font-semibold"
+            >
+              Save All Questions
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

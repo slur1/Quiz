@@ -3,6 +3,7 @@ import QuizDescription from "./Pages/QuizDescription"
 import QuizPage from "./Pages/QuizPage"
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Error from "./Pages/404"
+import AddQuestion from "./admin/AddQuestion"
 
 export default function App() {
 
@@ -13,8 +14,9 @@ export default function App() {
       <Routes>
         <Route path ="*" element ={<Error/>} />
         <Route path ="/landingpage" element ={<LandingPage/>} />
-        <Route path ="/quiz" element ={<QuizDescription/>} />
+        <Route path ="/quiz/:quiz_id" element ={<QuizDescription/>} />
         <Route path ="/quizstart" element ={<QuizPage/>} />
+        <Route path ="/addingquestions" element ={<AddQuestion/>} />
       </Routes>
     </BrowserRouter>
 

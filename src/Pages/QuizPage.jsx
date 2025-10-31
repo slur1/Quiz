@@ -203,8 +203,8 @@ export default function QuizPage() {
       <>
         <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
           <div className="max-w-2xl mx-auto">
+            <h1 className="text-2xl font-bold text-cyan-400 mb-3">{quizUser.firstName} {quizUser.lastName}</h1>
             <div className="flex justify-between items-center mb-4">
-              <h1 className="text-1xl font-bold text-cyan-400">{quizUser.firstName} {quizUser.lastName}</h1>
               <h1 className="text-2xl font-bold text-cyan-400">Quiz #{1}</h1>
               <p className="text-slate-400">
                 Question {currentQuestion + 1} of {quizData.length}

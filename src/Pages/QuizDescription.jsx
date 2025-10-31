@@ -1,17 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "../App.css";
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { postToEndpoint } from "../components/apiService";
 import Swal from "sweetalert2";
+import { getFromEndpoint } from "../components/apiService";
 
 export default function QuizDescription() {
   const [showModal, setShowModal] = useState(false);
+  const { quiz_id } = useParams(); 
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     section: "",
   });
+  const [quiz, setQuiz] = useState(null);
+  
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      try {
+        const res = await getFromEndpoint(
+          `fetch_quiz.php?quiz_id=${quiz_id}`
+        );
+        if (res.data.status === "success") {
+          setQuiz(res.data.data);
+        } else {
+          setError("Quiz not found.");
+        }
+      } catch (err) {
+        setError("Failed to fetch quiz details.");
+        console.error(err);
+      } 
+    };
+
+    fetchQuiz();
+  }, [quiz_id]);
+
   const [Error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -84,19 +108,19 @@ export default function QuizDescription() {
     <>
       {/* Main UI */}
       <div className="min-h-[92vh] flex flex-col items-center justify-center bg-slate-900 text-white">
-        <h1 className="text-4xl font-bold mb-4">Quiz #1 — Computer System Servicing</h1>
+        <h1 className="text-4xl font-bold mb-4">Quiz #{quiz?.quiz_no} - {quiz?.title}</h1>
         <p className="text-lg mb-8">
-          Test your knowledge about computer hardware and system components!
+          {quiz?.description}
         </p>
 
         <div className="flex gap-4">
-        <Link to="/landingpage">
+        {/* <Link to="/landingpage">
           <button
             className="bg-gray-600 hover:bg-gray-700 px-6 py-2 rounded-lg"
           >
             Back
           </button>
-        </Link>
+        </Link> */}
           <button
             onClick={() => setShowModal(true)} // 🔥 ito magbubukas ng modal
             className="bg-cyan-600 hover:bg-cyan-700 px-6 py-2 rounded-lg"
