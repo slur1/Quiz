@@ -1,104 +1,87 @@
 import { useState, useEffect } from "react";
 import "../App.css";
+import { getFromEndpoint } from "../components/apiService";
 
 export default function QuizPage() {
-//   sa admin yung paglagay ng questions dapat may mga input field yung questions, answers,
-// timelimit and drop down type, and kapagg multiple choice
 
-      const [quizUser, setQuizUser] = useState(null)
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("quizUser")
-    if (storedUser) {
-      setQuizUser(JSON.parse(storedUser))
-    }
-  }, [])
-
-  const quizData = [
-    {
-      type: "enumeration",
-      question: "Enumerate the main components of a computer system.",
-      answers: ["CPU", "RAM", "Storage", "Motherboard"],
-      timeLimit: 60,
-    },
-    {
-      type: "enumeration",
-      question: "List the types of computer memory.",
-      answers: ["RAM", "ROM", "Cache", "Virtual Memory"],
-      timeLimit: 60,
-    },
-    {
-      type: "enumeration",
-      question: "Enumerate the steps in computer maintenance.",
-      answers: ["Cleaning", "Updating", "Defragmentation", "Backup"],
-      timeLimit: 60,
-    },
-    {
-      type: "multiple-choice",
-      question: "What does CPU stand for?",
-      options: [
-        "Central Processing Unit",
-        "Central Program Utility",
-        "Computer Personal Unit",
-        "Central Processor Utility",
-      ],
-      correct: 0,
-      timeLimit: 30,
-    },
-    {
-      type: "multiple-choice",
-      question: "Which component is responsible for temporary data storage?",
-      options: ["Hard Drive", "RAM", "ROM", "Cache"],
-      correct: 1,
-      timeLimit: 30,
-    },
-    {
-      type: "multiple-choice",
-      question: "What is the primary function of a motherboard?",
-      options: [
-        "Store data",
-        "Connect all components",
-        "Cool the system",
-        "Display graphics",
-      ],
-      correct: 1,
-      timeLimit: 30,
-    },
-    {
-      type: "identification",
-      question: "What is the name of the cooling device used in computers?",
-      answer: "fan",
-      timeLimit: 40,
-    },
-    {
-      type: "identification",
-      question: "Identify the device that converts AC power to DC power.",
-      answer: "power supply",
-      timeLimit: 40,
-    },
-    {
-      type: "identification",
-      question: "What is the name of the circuit board that holds the CPU?",
-      answer: "motherboard",
-      timeLimit: 40,
-    },
-    {
-      type: "identification",
-      question: "Identify the storage device that uses spinning platters.",
-      answer: "hard drive",
-      timeLimit: 40,
-    },
-  ];
-
+  const [quizUser, setQuizUser] = useState(null);
+  const [quizData, setQuizData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [userAnswers, setUserAnswers] = useState(Array(quizData.length).fill(null));
-  const [timeLeft, setTimeLeft] = useState(quizData[0].timeLimit);
+  const [userAnswers, setUserAnswers] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(0);
   const [showScore, setShowScore] = useState(false);
   const [score, setScore] = useState(0);
   const [showThankYou, setShowThankYou] = useState(false);
 
   useEffect(() => {
-    if (showScore || showThankYou) return;
+    const storedUser = localStorage.getItem("quizUser");
+    if (storedUser) {
+      setQuizUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+
+useEffect(() => {
+  const fetchQuestions = async () => {
+    try {
+      const quiz_id = 1;
+      const res = await getFromEndpoint(`get_questions.php?quiz_id=${quiz_id}`);
+      console.log("Fetched questions:", res.data); 
+      if (res.data.status === "success" && Array.isArray(res.data.data)) {
+        const formatted = res.data.data.map((q) => {
+          const rawType = (q.question_type || q.type || "").toLowerCase().trim();
+          const type = rawType.includes("multiple") ? "multiple-choice"
+                      : rawType.includes("identification") ? "identification"
+                      : rawType.includes("enumeration") ? "enumeration"
+                      : "unknown";
+          const formattedQuestion = {
+            type,
+            question: q.question_text || q.question || "",
+            timeLimit: parseInt(q.time_limit) || 30,
+          };
+
+          if (type === "multiple-choice") {
+            formattedQuestion.options = [
+              q.choice_a || q.choiceA,
+              q.choice_b || q.choiceB,
+              q.choice_c || q.choiceC,
+              q.choice_d || q.choiceD,
+            ].filter(Boolean);
+            formattedQuestion.correct = ["A", "B", "C", "D"].indexOf(
+              (q.correct_answer || "").toUpperCase()
+            );
+          } else if (type === "identification") {
+            formattedQuestion.answer = q.correct_answer;
+          } else if (type === "enumeration") {
+            formattedQuestion.answers = (q.correct_answer || "")
+              .split(",")
+              .map((a) => a.trim());
+          }
+
+          return formattedQuestion;
+        });
+
+        setQuizData(formatted);
+        setUserAnswers(Array(formatted.length).fill(null));
+        setTimeLeft(formatted[0]?.timeLimit || 30);
+      } else {
+        console.warn("No quiz data found.");
+      }
+    } catch (err) {
+      console.error("Error fetching questions:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchQuestions();
+}, []);
+
+
+  // ✅ Timer
+  useEffect(() => {
+    if (showScore || showThankYou || loading) return;
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -110,9 +93,7 @@ export default function QuizPage() {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [currentQuestion, showScore]);
-
-  const question = quizData[currentQuestion];
+  }, [currentQuestion, showScore, loading]);
 
   const handleAnswerChange = (value) => {
     const updated = [...userAnswers];
@@ -128,13 +109,6 @@ export default function QuizPage() {
       handleSubmit();
     }
   };
-
-  // const handlePrev = () => {
-  //   if (currentQuestion > 0) {
-  //     setCurrentQuestion(currentQuestion - 1);
-  //     setTimeLeft(quizData[currentQuestion - 1].timeLimit);
-  //   }
-  // };
 
   const handleSubmit = () => {
     let totalScore = 0;
@@ -158,6 +132,18 @@ export default function QuizPage() {
   };
 
   const percentage = Math.round((score / quizData.length) * 100);
+  const question = quizData[currentQuestion] || null;
+
+
+  // ✅ Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+        <p>Loading quiz questions...</p>
+      </div>
+    );
+  }
+
 
   if (showThankYou) {
     return (
@@ -177,33 +163,52 @@ export default function QuizPage() {
     );
   }
 
-  if (showScore) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <div className="max-w-md w-full p-8 bg-slate-800 rounded-2xl border border-slate-700 text-center">
-          <div className="text-6xl mb-4">🏆</div>
-          <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
-          <p className="text-slate-400 mb-4">Your Score:</p>
-          <p className="text-5xl font-bold text-cyan-400 mb-4">{percentage}%</p>
-          <button
-            onClick={() => setShowThankYou(true)}
-            className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
-          >
-            Continue
-          </button>
-        </div>
+if (showScore) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+      <div className="max-w-md w-full p-8 bg-slate-800 rounded-2xl border border-slate-700 text-center">
+        <div className="text-6xl mb-4">🏆</div>
+        <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
+
+        <p className="text-slate-400 mb-2">You got</p>
+        <p className="text-5xl font-bold text-cyan-400 mb-2">
+          {Math.round(score)} / {quizData.length}
+        </p>
+        <p className="text-slate-400 mb-4">correct answers</p>
+        <p className="text-3xl font-semibold text-cyan-300">{percentage}%</p>
+
+        <p className="mt-4 text-lg text-slate-300">
+          {percentage >= 90
+            ? "🌟 Excellent work!"
+            : percentage >= 75
+            ? "👍 Good job!"
+            : percentage >= 50
+            ? "🙂 Keep practicing!"
+            : "😅 Better luck next time!"}
+        </p>
+
+        <button
+          onClick={() => setShowThankYou(true)}
+          className="mt-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
+        >
+          Continue
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
 
   return (
     <>
 
       {quizUser ? (
       <>
-        <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
+      <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
           <div className="max-w-2xl mx-auto">
-            <h1 className="text-2xl font-bold text-cyan-400 mb-3">{quizUser.firstName} {quizUser.lastName}</h1>
+            <h1 className="text-2xl font-bold text-cyan-400 mb-3">
+              {quizUser.firstName} {quizUser.lastName}
+            </h1>
             <div className="flex justify-between items-center mb-4">
               <h1 className="text-2xl font-bold text-cyan-400">Quiz #{1}</h1>
               <p className="text-slate-400">
@@ -221,96 +226,84 @@ export default function QuizPage() {
               ></div>
             </div>
 
-            {/* Question */}
-            <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
-              <div className="flex justify-between mb-4">
-                <h2 className="text-xl font-bold">{question.question}</h2>
-                <div className="text-right">
-                  <p className="text-slate-400 text-xs">Time Left</p>
-                  <p
-                    className={`text-2xl font-bold ${
-                      timeLeft <= 5
-                        ? "text-red-500"
-                        : timeLeft <= 10
-                        ? "text-yellow-400"
-                        : "text-cyan-400"
-                    }`}
-                  >
-                    {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
-                    {String(timeLeft % 60).padStart(2, "0")}
-                  </p>
-                </div>
-              </div>
-
-              {/* Options / Inputs */}
-              {question.type === "enumeration" && (
-                <textarea
-                  className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
-                  rows={5}
-                  placeholder="Enter your answers, one per line..."
-                  value={userAnswers[currentQuestion]?.join("\n") || ""}
-                  onChange={(e) =>
-                    handleAnswerChange(
-                      e.target.value.split("\n").filter((a) => a.trim())
-                    )
-                  }
-                />
-              )}
-
-              {question.type === "multiple-choice" && (
-                <div className="space-y-3">
-                  {question.options.map((opt, i) => (
-                    <button
-                      key={i}
-                      className={`w-full text-left px-4 py-3 rounded-lg border ${
-                        userAnswers[currentQuestion] === i
-                          ? "bg-cyan-600 border-cyan-600"
-                          : "bg-slate-700 border-slate-600 hover:border-cyan-400"
+            {/* Question card */}
+            {question ? (
+              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
+                <div className="flex justify-between mb-4">
+                  <h2 className="text-xl font-bold">{question.question}</h2>
+                  <div className="text-right">
+                    <p className="text-slate-400 text-xs">Time Left</p>
+                    <p
+                      className={`text-2xl font-bold ${
+                        timeLeft <= 5
+                          ? "text-red-500"
+                          : timeLeft <= 10
+                          ? "text-yellow-400"
+                          : "text-cyan-400"
                       }`}
-                      onClick={() => handleAnswerChange(i)}
                     >
-                      {String.fromCharCode(65 + i)}. {opt}
-                    </button>
-                  ))}
+                      {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
+                      {String(timeLeft % 60).padStart(2, "0")}
+                    </p>
+                  </div>
                 </div>
-              )}
 
-              {question.type === "identification" && (
-                <input
-                  type="text"
-                  className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
-                  placeholder="Type your answer..."
-                  value={userAnswers[currentQuestion] || ""}
-                  onChange={(e) => handleAnswerChange(e.target.value)}
-                />
-              )}
-            </div>
+                {/* Input types */}
+                {question.type === "enumeration" && (
+                  <textarea
+                    className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
+                    rows={5}
+                    placeholder="Enter your answers, one per line..."
+                    value={userAnswers[currentQuestion]?.join("\n") || ""}
+                    onChange={(e) =>
+                      handleAnswerChange(
+                        e.target.value.split("\n").filter((a) => a.trim())
+                      )
+                    }
+                  />
+                )}
+
+                {question.type === "multiple-choice" && (
+                  <div className="space-y-3">
+                    {question.options.map((opt, i) => (
+                      <button
+                        key={i}
+                        className={`w-full text-left px-4 py-3 rounded-lg border ${
+                          userAnswers[currentQuestion] === i
+                            ? "bg-cyan-600 border-cyan-600"
+                            : "bg-slate-700 border-slate-600 hover:border-cyan-400"
+                        }`}
+                        onClick={() => handleAnswerChange(i)}
+                      >
+                        {String.fromCharCode(65 + i)}. {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {question.type === "identification" && (
+                  <input
+                    type="text"
+                    className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
+                    placeholder="Type your answer..."
+                    value={userAnswers[currentQuestion] || ""}
+                    onChange={(e) => handleAnswerChange(e.target.value)}
+                  />
+                )}
+              </div>
+            ) : (
+              <p className="text-slate-400">No question available.</p>
+            )}
 
             {/* Navigation */}
-        <div className="flex gap-4">
-          <button
-            onClick={handleNext}
-            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
-          >
-            {currentQuestion === quizData.length - 1 ? "Submit Quiz" : (
-              <>
-                Next
-                
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </>
-            )}
-          </button>
-        </div>
-
+            <div className="flex gap-4">
+              <button
+                onClick={handleNext}
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
+              >
+                {currentQuestion === quizData.length - 1 ? "Submit Quiz" : "Next"}
+              </button>
+            </div>
           </div>
         </div>
       <footer className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white py-6">
