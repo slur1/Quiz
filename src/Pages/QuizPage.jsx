@@ -4,7 +4,7 @@ import { getFromEndpoint } from "../components/apiService";
 import { useParams } from "react-router-dom";
 
 export default function QuizPage() {
-  const { quiz_id } = useParams();
+  const { quiz_id, student_id } = useParams();
   const [quizUser, setQuizUser] = useState(null);
   const [quizData, setQuizData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,9 +39,12 @@ export default function QuizPage() {
           if (res.data.status === "success" && Array.isArray(res.data.data)) {
             const formatted = res.data.data.map((q) => {
               const rawType = (q.question_type || q.type || "").toLowerCase().trim();
-              const type = rawType.includes("multiple") ? "multiple-choice"
-                : rawType.includes("identification") ? "identification"
-                : rawType.includes("enumeration") ? "enumeration"
+              const type = rawType.includes("multiple")
+                ? "multiple-choice"
+                : rawType.includes("identification")
+                ? "identification"
+                : rawType.includes("enumeration")
+                ? "enumeration"
                 : "unknown";
               const formattedQuestion = {
                 type,
@@ -68,31 +71,36 @@ export default function QuizPage() {
               return formattedQuestion;
             });
 
+            // ✅ RANDOMIZE QUESTIONS HERE (Fisher–Yates Shuffle)
+            for (let i = formatted.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [formatted[i], formatted[j]] = [formatted[j], formatted[i]];
+            }
+
             setQuizData(formatted);
 
-            // ✅ If no saved answers, initialize fresh
-              const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
-              if (savedProgress) {
-                const data = JSON.parse(savedProgress);
-                setCurrentQuestion(data.currentQuestion || 0);
-                setUserAnswers(data.userAnswers || []);
-
+            // ✅ Restore progress if any
+            const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
+            if (savedProgress) {
+              const data = JSON.parse(savedProgress);
+              setCurrentQuestion(data.currentQuestion || 0);
+              setUserAnswers(data.userAnswers || []);
               if (!data.showScore && !data.showThankYou && data.endTime) {
                 const remaining = Math.floor((data.endTime - Date.now()) / 1000);
                 setTimeLeft(remaining > 0 ? remaining : 0);
               }
-                  // 🏁 Restore quiz completion states
-                if (data.showScore) {
-                  setScore(data.score || { totalScore: 0, totalPossible: 0 });
-                  setShowScore(true);
-                } else if (data.showThankYou) {
-                  setShowThankYou(true);
-                }
-              } else {
-                setTimeLeft(30);
+              if (data.showScore) {
+                setScore(data.score || { totalScore: 0, totalPossible: 0 });
+                setShowScore(true);
+              } else if (data.showThankYou) {
+                setShowThankYou(true);
               }
-              const storedUser = localStorage.getItem("quizUser");
-              if (storedUser) setQuizUser(JSON.parse(storedUser));
+            } else {
+              setTimeLeft(30);
+            }
+
+            const storedUser = localStorage.getItem("quizUser");
+            if (storedUser) setQuizUser(JSON.parse(storedUser));
           }
         } catch (err) {
           console.error("Error fetching questions:", err);
@@ -100,10 +108,12 @@ export default function QuizPage() {
           setLoading(false);
         }
       };
+
       fetchQuestions();
     }, [quiz_id]);
 
-
+// AAYUSIN YUNG SA REVIEW NG SCORE.. DAPAT HINDI NAKIKITA YUNG TAMANG SAGOT SA QUESTIONS, DAPAT
+// ANG MAKIKITA LANG YUNG SAGOT NYA
 // ✅ Save progress including quiz state
   useEffect(() => {
     if (!loading && quizData.length > 0) {

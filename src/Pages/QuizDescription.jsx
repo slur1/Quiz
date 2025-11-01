@@ -46,7 +46,9 @@ export default function QuizDescription() {
    try {
     const response = await postToEndpoint("check_student.php", formData);
     const data = response.data;
-    if (response.data.status === "success") {
+    if (data.status === "success") {
+      const student_id = data.student_id; // ✅ get from backend
+
       await Swal.fire({
         icon: "success",
         title: "Welcome!",
@@ -56,17 +58,23 @@ export default function QuizDescription() {
         allowEscapeKey: false,
         timerProgressBar: true,
         timer: 2500,
-        background: "#334155", 
+        background: "#334155",
         color: "#ffffff",
       });
 
-      localStorage.setItem("quizUser", JSON.stringify(formData));
+      localStorage.setItem(
+        "quizUser",
+        JSON.stringify({ ...formData, student_id })
+      );
+
       setShowModal(false);
-      const randomCode = Array.from(crypto.getRandomValues(new Uint8Array(32))) 
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
-      navigate(`/quizstart/${randomCode}/${quiz_id}/${randomCode}`);
-    }  else if (data.status === "error") {
+
+      const randomCode = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      navigate(`/quizstart/${randomCode}/${student_id}/${quiz_id}/${randomCode}`);
+    } else if (data.status === "error") {
       let alertTitle = "";
       let alertText = data.message;
 
