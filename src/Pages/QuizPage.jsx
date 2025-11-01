@@ -14,72 +14,113 @@ export default function QuizPage() {
   const [showScore, setShowScore] = useState(false);
   const [score, setScore] = useState(0);
   const [showThankYou, setShowThankYou] = useState(false);
+  const [showReview, setShowReview] = useState(false);
 
   useEffect(() => {
+    const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
+    if (savedProgress) {
+      const data = JSON.parse(savedProgress);
+      setCurrentQuestion(data.currentQuestion || 0);
+      setUserAnswers(data.userAnswers || []);
+      setTimeLeft(data.timeLeft || 30);
+    }
+
     const storedUser = localStorage.getItem("quizUser");
     if (storedUser) {
       setQuizUser(JSON.parse(storedUser));
     }
-  }, []);
+  }, [quiz_id]);
 
 
-useEffect(() => {
-  const fetchQuestions = async () => {
-    try {
-      const res = await getFromEndpoint(`get_questions.php?quiz_id=${quiz_id}`);
-      console.log("Fetched questions:", res.data); 
-      if (res.data.status === "success" && Array.isArray(res.data.data)) {
-        const formatted = res.data.data.map((q) => {
-          const rawType = (q.question_type || q.type || "").toLowerCase().trim();
-          const type = rawType.includes("multiple") ? "multiple-choice"
-                      : rawType.includes("identification") ? "identification"
-                      : rawType.includes("enumeration") ? "enumeration"
-                      : "unknown";
-          const formattedQuestion = {
-            type,
-            question: q.question_text || q.question || "",
-            timeLimit: parseInt(q.time_limit) || 30,
-          };
+  useEffect(() => {
+      const fetchQuestions = async () => {
+        try {
+          const res = await getFromEndpoint(`get_questions.php?quiz_id=${quiz_id}`);
+          if (res.data.status === "success" && Array.isArray(res.data.data)) {
+            const formatted = res.data.data.map((q) => {
+              const rawType = (q.question_type || q.type || "").toLowerCase().trim();
+              const type = rawType.includes("multiple") ? "multiple-choice"
+                : rawType.includes("identification") ? "identification"
+                : rawType.includes("enumeration") ? "enumeration"
+                : "unknown";
+              const formattedQuestion = {
+                type,
+                question: q.question_text || q.question || "",
+                timeLimit: parseInt(q.time_limit) || 30,
+              };
+              if (type === "multiple-choice") {
+                formattedQuestion.options = [
+                  q.choice_a || q.choiceA,
+                  q.choice_b || q.choiceB,
+                  q.choice_c || q.choiceC,
+                  q.choice_d || q.choiceD,
+                ].filter(Boolean);
+                formattedQuestion.correct = ["A", "B", "C", "D"].indexOf(
+                  (q.correct_answer || "").toUpperCase()
+                );
+              } else if (type === "identification") {
+                formattedQuestion.answer = q.correct_answer;
+              } else if (type === "enumeration") {
+                formattedQuestion.answers = (q.correct_answer || "")
+                  .split(",")
+                  .map((a) => a.trim());
+              }
+              return formattedQuestion;
+            });
 
-          if (type === "multiple-choice") {
-            formattedQuestion.options = [
-              q.choice_a || q.choiceA,
-              q.choice_b || q.choiceB,
-              q.choice_c || q.choiceC,
-              q.choice_d || q.choiceD,
-            ].filter(Boolean);
-            formattedQuestion.correct = ["A", "B", "C", "D"].indexOf(
-              (q.correct_answer || "").toUpperCase()
-            );
-          } else if (type === "identification") {
-            formattedQuestion.answer = q.correct_answer;
-          } else if (type === "enumeration") {
-            formattedQuestion.answers = (q.correct_answer || "")
-              .split(",")
-              .map((a) => a.trim());
+            setQuizData(formatted);
+
+            // ✅ If no saved answers, initialize fresh
+              const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
+              if (savedProgress) {
+                const data = JSON.parse(savedProgress);
+                setCurrentQuestion(data.currentQuestion || 0);
+                setUserAnswers(data.userAnswers || []);
+
+              if (!data.showScore && !data.showThankYou && data.endTime) {
+                const remaining = Math.floor((data.endTime - Date.now()) / 1000);
+                setTimeLeft(remaining > 0 ? remaining : 0);
+              }
+                  // 🏁 Restore quiz completion states
+                if (data.showScore) {
+                  setScore(data.score || { totalScore: 0, totalPossible: 0 });
+                  setShowScore(true);
+                } else if (data.showThankYou) {
+                  setShowThankYou(true);
+                }
+              } else {
+                setTimeLeft(30);
+              }
+              const storedUser = localStorage.getItem("quizUser");
+              if (storedUser) setQuizUser(JSON.parse(storedUser));
           }
+        } catch (err) {
+          console.error("Error fetching questions:", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchQuestions();
+    }, [quiz_id]);
 
-          return formattedQuestion;
-        });
 
-        setQuizData(formatted);
-        setUserAnswers(Array(formatted.length).fill(null));
-        setTimeLeft(formatted[0]?.timeLimit || 30);
-      } else {
-        console.warn("No quiz data found.");
-      }
-    } catch (err) {
-      console.error("Error fetching questions:", err);
-    } finally {
-      setLoading(false);
+// ✅ Save progress including quiz state
+  useEffect(() => {
+    if (!loading && quizData.length > 0) {
+      const data = {
+        currentQuestion,
+        userAnswers,
+        endTime: Date.now() + timeLeft * 1000,
+        showScore,
+        showThankYou,
+        score,
+      };
+      localStorage.setItem(`quizProgress_${quiz_id}`, JSON.stringify(data));
     }
-  };
-
-  fetchQuestions();
-}, []);
+  }, [currentQuestion, userAnswers, timeLeft, loading, showScore, showThankYou, score]);
 
 
-  // ✅ Timer
+  // ✅ Timer persists (does not reset on refresh)
   useEffect(() => {
     if (showScore || showThankYou || loading) return;
     const timer = setInterval(() => {
@@ -110,73 +151,49 @@ useEffect(() => {
     }
   };
 
-const handleSubmit = () => {
-  let totalScore = 0;
-  let totalPossible = 0;
+ const handleSubmit = () => {
+    let totalScore = 0;
+    let totalPossible = 0;
 
-  quizData.forEach((q, i) => {
-    const ans = userAnswers[i];
-
-    if (q.type === "multiple-choice") {
-      totalPossible += 1;
-      if (ans === q.correct) totalScore += 1;
-
-    } else if (q.type === "identification") {
-      totalPossible += 1;
-      if (ans?.toLowerCase().trim() === q.answer.toLowerCase().trim()) {
-        totalScore += 1;
-      }
-
-    } else if (q.type === "enumeration") {
-      // ✅ Normalize correct answers
-      const correctAnswers = (q.answers || [])
-        .map((a) => a.toLowerCase().trim())
-        .filter((a) => a !== "");
-      totalPossible += correctAnswers.length;
-
-      // ✅ Normalize user input (may be array or string)
-      let userInput = [];
-      if (Array.isArray(ans)) {
-        userInput = ans.map((a) => a.toLowerCase().trim());
-      } else if (typeof ans === "string") {
-        userInput = ans
-          .split(/[\n,]/)
+    quizData.forEach((q, i) => {
+      const ans = userAnswers[i];
+      if (q.type === "multiple-choice") {
+        totalPossible += 1;
+        if (ans === q.correct) totalScore += 1;
+      } else if (q.type === "identification") {
+        totalPossible += 1;
+        if (ans?.toLowerCase().trim() === q.answer.toLowerCase().trim()) {
+          totalScore += 1;
+        }
+      } else if (q.type === "enumeration") {
+        const correctAnswers = (q.answers || [])
           .map((a) => a.toLowerCase().trim())
           .filter((a) => a !== "");
-      }
-
-      console.log("✅ ENUM CHECK:", { correctAnswers, userInput }); // 🔍 debug log
-
-      // ✅ Count exact matches (case-insensitive)
-      let matchCount = 0;
-      correctAnswers.forEach((correct) => {
-        if (userInput.includes(correct)) {
-          matchCount++;
+        totalPossible += correctAnswers.length;
+        let userInput = [];
+        if (Array.isArray(ans)) {
+          userInput = ans.map((a) => a.toLowerCase().trim());
+        } else if (typeof ans === "string") {
+          userInput = ans
+            .split(/[\s,]+/) 
+            .map((a) => a.toLowerCase().trim())
+            .filter((a) => a !== "");
         }
-      });
+        console.log("✅ ENUM CHECK:", { correctAnswers, userInput });
+        let matchCount = 0;
+        correctAnswers.forEach((correct) => {
+          if (userInput.includes(correct)) matchCount++;
+        });
+        totalScore += matchCount;
+      }
+    });
 
-      console.log(
-        `Question ${i + 1}: ${matchCount}/${correctAnswers.length} correct`
-      );
+    setScore({ totalScore, totalPossible });
+    setShowScore(true);
 
-      totalScore += matchCount;
-    }
-  });
-
-  console.log("🎯 FINAL SCORE:", totalScore, "of", totalPossible);
-
-  setScore({ totalScore, totalPossible });
-  setShowScore(true);
-};
-
-
-
-
-
-// const totalPossiblePoints = quizData.reduce((sum, q) => {
-//   if (q.type === "enumeration") return sum + q.answers.length;
-//   return sum + 1;
-// }, 0);
+    // ✅ Clear saved progress after submission
+    localStorage.removeItem(`quizProgress_${quiz_id}`);
+  };
 
 const percentage = score.totalPossible
   ? Math.round((score.totalScore / score.totalPossible) * 100)
@@ -195,24 +212,217 @@ const percentage = score.totalPossible
     );
   }
 
+if (showReview) {
+  return (
+    <div className="min-h-screen bg-slate-900 text-white p-6">
+      <div className="max-w-3xl mx-auto">
+        {/* Header Section */}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-3xl font-bold text-cyan-400">📝 Quiz Review</h2>
 
-  if (showThankYou) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <div className="max-w-md text-center p-8 bg-slate-800 rounded-2xl border border-slate-700">
-          <div className="text-6xl mb-4">🎓</div>
-          <h2 className="text-3xl font-bold mb-4">Thank You!</h2>
-          <p className="text-slate-400 mb-6">Your responses have been recorded.</p>
+          {/* 🔙 Back Button */}
           <button
-           
+            onClick={() => setShowReview(false)}
+            className="bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 rounded-lg transition"
+          >
+            ← Back
+          </button>
+        </div>
+
+        {/* Questions with Points */}
+        {quizData.map((q, i) => {
+          const userAns = userAnswers[i];
+          let earned = 0;
+          let possible = 1;
+
+          // 🧮 Compute points per question
+          if (q.type === "multiple-choice") {
+            possible = 1;
+            earned = userAns === q.correct ? 1 : 0;
+          } else if (q.type === "identification") {
+            possible = 1;
+            earned =
+              userAns?.toLowerCase().trim() === q.answer?.toLowerCase().trim()
+                ? 1
+                : 0;
+          } else if (q.type === "enumeration") {
+            // ✅ Clean and reliable enumeration scoring
+              const correct = (q.answers || [])
+                .map((a) => a.toLowerCase().trim())
+                .filter(Boolean);
+              possible = correct.length;
+
+              let userList = [];
+              if (Array.isArray(userAns)) {
+                userList = userAns.map((a) => a.toLowerCase().trim());
+              } else if (typeof userAns === "string") {
+                userList = userAns
+                  .split(/[\s,]+/) // ✅ handles spaces, commas, and newlines
+                  .map((a) => a.toLowerCase().trim())
+                  .filter(Boolean);
+              }
+
+              // ✅ Count how many correct answers the user got
+              earned = correct.filter((ans) => userList.includes(ans)).length;
+          }
+
+          const isCorrect = earned === possible;
+          const correctLetter =
+            q.type === "multiple-choice"
+              ? String.fromCharCode(65 + q.correct)
+              : null;
+
+          return (
+            <div
+              key={i}
+              className="bg-slate-800 p-5 rounded-2xl mb-4 border border-slate-700"
+            >
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-semibold">
+                  {i + 1}. {q.question}
+                </h3>
+                <span
+                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    isCorrect
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-yellow-500/20 text-yellow-400"
+                  }`}
+                >
+                  {earned}/{possible} point{possible > 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {/* Multiple choice */}
+              {q.type === "multiple-choice" && (
+                <div className="space-y-2 mt-2">
+                  {q.options.map((opt, idx) => {
+                    const letter = String.fromCharCode(65 + idx);
+                    const isUserChoice = userAns === idx;
+                    const isRight = q.correct === idx;
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded-lg border ${
+                          isRight
+                            ? "border-green-500 bg-green-900/30"
+                            : isUserChoice
+                            ? "border-red-500 bg-red-900/30"
+                            : "border-slate-700"
+                        }`}
+                      >
+                        {letter}. {opt}
+                      </div>
+                    );
+                  })}
+                  {!isCorrect && (
+                    <p className="mt-3 text-sm text-green-400">
+                      ✅ Correct answer: {correctLetter}. {q.options[q.correct]}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Identification */}
+              {q.type === "identification" && (
+                <div className="mt-3">
+                  <p>
+                    <span className="font-semibold text-slate-400">
+                      Your answer:
+                    </span>{" "}
+                    <span
+                      className={
+                        isCorrect ? "text-green-400" : "text-red-400"
+                      }
+                    >
+                      {userAns || "(No answer)"}
+                    </span>
+                  </p>
+                  {!isCorrect && (
+                    <p>
+                      <span className="font-semibold text-slate-400">
+                        Correct answer:
+                      </span>{" "}
+                      <span className="text-green-400">{q.answer}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Enumeration */}
+              {q.type === "enumeration" && (
+                <div className="mt-3">
+                  <p className="font-semibold text-slate-400 mb-1">
+                    Your answers:
+                  </p>
+                  <ul className="list-disc list-inside mb-2">
+                    {(Array.isArray(userAns)
+                      ? userAns
+                      : (userAns || "").split(/[\s,]+/)
+                    ).map((ans, idx) => (
+                      <li key={idx} className="text-slate-300">
+                        {ans.trim()}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="font-semibold text-slate-400 mb-1">
+                    Correct answers:
+                  </p>
+                  <ul className="list-disc list-inside">
+                    {(q.answers || []).map((ans, idx) => (
+                      <li
+                        key={idx}
+                        className={`${
+                          (userAns || "")
+                            .toLowerCase()
+                            .includes(ans.toLowerCase().trim())
+                            ? "text-green-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        {ans}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Finish Button */}
+        <div className="text-center mt-8">
+          <button
+            onClick={() => setShowThankYou(true)}
             className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
           >
-            Back to Home
+            Finish
           </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+
+
+
+  // if (showThankYou) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+  //       <div className="max-w-md text-center p-8 bg-slate-800 rounded-2xl border border-slate-700">
+  //         <div className="text-6xl mb-4">🎓</div>
+  //         <h2 className="text-3xl font-bold mb-4">Thank You!</h2>
+  //         <p className="text-slate-400 mb-6">Your responses have been recorded.</p>
+  //         <button
+           
+  //           className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
+  //         >
+  //           Back to Home
+  //         </button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
 if (showScore) {
   return (
@@ -239,10 +449,10 @@ if (showScore) {
         </p>
 
         <button
-          onClick={() => setShowThankYou(true)}
+          onClick={() => setShowReview(true)}
           className="mt-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
         >
-          Continue
+          Review Answers
         </button>
       </div>
     </div>
