@@ -1,191 +1,173 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import "../App.css";
 import { getFromEndpoint, postToEndpoint } from "../components/apiService";
-import { useParams, useNavigate  } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+
 import PixelLoader from "../components/PixelLoader";
+import QuizHeader from "../components/QuizHeader";
+import QuizProgressBar from "../components/QuizProgressBar";
+import QuizQuestion from "../components/QuizQuestion";
+import QuizResult from "../components/QuizResult";
+import Footer from "../components/Footer";
+
+import useQuizStorage from "../hooks/useQuizStorage";
+import useQuizTimer from "../hooks/useQuizTimer";
+import generateRandomCode from "../utils/generateRandomCode";
+import LogoIcon from "../components/LogoIcon";
 
 export default function QuizPage() {
   const { quiz_id, student_id } = useParams();
-  const [quizUser, setQuizUser] = useState(null);
-  const [quizData, setQuizData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [userAnswers, setUserAnswers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [showScore, setShowScore] = useState(false);
-  const [score, setScore] = useState(0);
-  const [showThankYou, setShowThankYou] = useState(false);
   const navigate = useNavigate();
+  const [quizUser, setQuizUser] = useState(null);
+  const [quizData, setQuizData] = useState([]);  
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [userAnswers, setUserAnswers] = useState([]);  
+  const [loading, setLoading] = useState(true);
+  const [showScore, setShowScore] = useState(false);
+  const [score, setScore] = useState({ totalScore: 0, totalPossible: 0 });
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [focusLossCount, setFocusLossCount] = useState(0);
+  const [isBlurred, setIsBlurred] = useState(false);
+  const {
+    restoreState,
+    saveState,
+    clearState,
+    ensureSavedQuestions,
+    getSavedQuestions,
+  } = useQuizStorage(quiz_id);
+
+  const {
+    timeLeft,
+    setTimeLeft,
+    startTimerFor,
+    stopTimer,
+  } = useQuizTimer({
+    onExpire: () => handleNext(),  
+  });
 
   useEffect(() => {
-    const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
-    if (savedProgress) {
-      const data = JSON.parse(savedProgress);
-
-      // ⏳ Check if older than 5 minutes
-      if (data.completedAt && Date.now() - data.completedAt > 1 * 60 * 1000) {
-        console.log("🧹 Quiz data expired — removing from localStorage...");
-
-        localStorage.removeItem(`quizProgress_${quiz_id}`);
-
-        // ✅ Create new random code for redirect
-        const newCode = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map(b => b.toString(16).padStart(2, "0"))
-          .join("");
-
-        navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
-      } else {
-        setCurrentQuestion(data.currentQuestion || 0);
-        setUserAnswers(data.userAnswers || []);
-        setTimeLeft(data.timeLeft || 30);
-      }
-    }
-
     const storedUser = localStorage.getItem("quizUser");
     if (storedUser) setQuizUser(JSON.parse(storedUser));
+
+    const restored = restoreState();
+    if (restored) {
+      if (restored.completedAt && Date.now() - restored.completedAt > 1 * 60 * 1000) {
+        clearState();
+        const newCode = generateRandomCode();
+        navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
+        return;
+      }
+
+      setCurrentQuestion(restored.currentQuestion ?? 0);
+      setUserAnswers(restored.userAnswers ?? []);
+
+      if (restored.showScore) {
+        setShowScore(true);
+        setScore(restored.score ?? { totalScore: 0, totalPossible: 0 });
+      }
+      if (restored.showThankYou) setShowThankYou(true);
+
+      if (restored.endTime) {
+        const remaining = Math.floor((restored.endTime - Date.now()) / 1000);
+        setTimeLeft(remaining > 0 ? remaining : 0);
+      }
+    }
   }, [quiz_id, navigate]);
 
 
   useEffect(() => {
-      const fetchQuestions = async () => {
-        try {
-          const res = await getFromEndpoint(`get_questions.php?quiz_id=${quiz_id}`);
-          if (res.data.status === "success" && Array.isArray(res.data.data)) {
-            const formatted = res.data.data.map((q) => {
-              const rawType = (q.question_type || q.type || "").toLowerCase().trim();
-              const type = rawType.includes("multiple")
-                ? "multiple-choice"
-                : rawType.includes("identification")
-                ? "identification"
-                : rawType.includes("enumeration")
-                ? "enumeration"
-                : "unknown";
-              const formattedQuestion = {
-                type,
-                question: q.question_text || q.question || "",
-                timeLimit: parseInt(q.time_limit) || 30,
-              };
-              if (type === "multiple-choice") {
-                formattedQuestion.options = [
-                  q.choice_a || q.choiceA,
-                  q.choice_b || q.choiceB,
-                  q.choice_c || q.choiceC,
-                  q.choice_d || q.choiceD,
-                ].filter(Boolean);
-                formattedQuestion.correct = ["A", "B", "C", "D"].indexOf(
-                  (q.correct_answer || "").toUpperCase()
-                );
-              } else if (type === "identification") {
-                formattedQuestion.answer = q.correct_answer;
-              } else if (type === "enumeration") {
-                formattedQuestion.answers = (q.correct_answer || "")
-                  .split(",")
-                  .map((a) => a.trim());
-              }
-              return formattedQuestion;
-            });
+    const fetchQuestions = async () => {
+      try {
+        const res = await getFromEndpoint(`get_questions.php?quiz_id=${quiz_id}`);
+        if (res.data?.status === "success" && Array.isArray(res.data.data)) {
+          const formatted = res.data.data.map((q) => {
+            const rawType = (q.question_type || q.type || "").toLowerCase().trim();
+            const type = rawType.includes("multiple")
+              ? "multiple-choice"
+              : rawType.includes("identification")
+              ? "identification"
+              : rawType.includes("enumeration")
+              ? "enumeration"
+              : "unknown";
 
-              const shuffleArray = (array) => {
-              const copy = [...array];
+            const fq = {
+              type,
+              question: q.question_text || q.question || "",
+              timeLimit: parseInt(q.time_limit) || 30,
+            };
+
+            if (type === "multiple-choice") {
+              fq.options = [
+                q.choice_a || q.choiceA,
+                q.choice_b || q.choiceB,
+                q.choice_c || q.choiceC,
+                q.choice_d || q.choiceD,
+              ].filter(Boolean);
+              fq.correct = ["A", "B", "C", "D"].indexOf((q.correct_answer || "").toUpperCase());
+            } else if (type === "identification") {
+              fq.answer = q.correct_answer || "";
+            } else if (type === "enumeration") {
+              fq.answers = (q.correct_answer || "").split(",").map((a) => a.trim());
+            }
+
+            return fq;
+          });
+
+          const savedQuestions = getSavedQuestions();
+          if (savedQuestions) {
+            setQuizData(savedQuestions);
+          } else {
+            const shuffleArray = (arr) => {
+              const copy = [...arr];
               for (let i = copy.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [copy[i], copy[j]] = [copy[j], copy[i]];
               }
               return copy;
             };
-              const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
-              if (savedProgress) {
-                const data = JSON.parse(savedProgress);
-                if (data.savedQuestions) {
-                  // ✅ Restore same randomized questions
-                  setQuizData(data.savedQuestions);
-                } else {
-                  // No saved order yet — randomize now and save it
-                  const shuffled = shuffleArray(formatted);
-                  setQuizData(shuffled);
-                  localStorage.setItem(
-                    `quizProgress_${quiz_id}`,
-                    JSON.stringify({ savedQuestions: shuffled })
-                  );
-                }
-              } else {
-                // First time quiz is loaded — randomize and save order
-                const shuffled = shuffleArray(formatted);
-                setQuizData(shuffled);
-                localStorage.setItem(
-                  `quizProgress_${quiz_id}`,
-                  JSON.stringify({ savedQuestions: shuffled })
-                );
-              }
-            if (savedProgress) {
-              const data = JSON.parse(savedProgress);
-              setCurrentQuestion(data.currentQuestion || 0);
-              setUserAnswers(data.userAnswers || []);
-              if (!data.showScore && !data.showThankYou && data.endTime) {
-                const remaining = Math.floor((data.endTime - Date.now()) / 1000);
-                setTimeLeft(remaining > 0 ? remaining : 0);
-              }
-              if (data.showScore) {
-                setScore(data.score || { totalScore: 0, totalPossible: 0 });
-                setShowScore(true);
-              } else if (data.showThankYou) {
-                setShowThankYou(true);
-              }
-            } else {
-              setTimeLeft(30);
-            }
-
-            const storedUser = localStorage.getItem("quizUser");
-            if (storedUser) setQuizUser(JSON.parse(storedUser));
+            const shuffled = shuffleArray(formatted);
+            setQuizData(shuffled);
+            ensureSavedQuestions(shuffled);
           }
-        } catch (err) {
-          console.error("Error fetching questions:", err);
-        } finally {
-          setTimeout(() => {
-            setLoading(false);
-          }, 2000);
+
+        } else {
+          console.error("No questions returned or unexpected response format:", res.data);
         }
-      };
+      } catch (err) {
+        console.error("Error fetching questions:", err);
+      } finally {
+        setTimeout(() => setLoading(false), 700);
+      }
+    };
 
-      fetchQuestions();
-    }, [quiz_id]);
+    fetchQuestions();
+  }, [quiz_id, ensureSavedQuestions, getSavedQuestions]);
 
-// AAYUSIN YUNG SA REVIEW NG SCORE.. DAPAT HINDI NAKIKITA YUNG TAMANG SAGOT SA QUESTIONS, DAPAT
-// ANG MAKIKITA LANG YUNG SAGOT NYA
-// ✅ Save progress including quiz state
+  
   useEffect(() => {
     if (!loading && quizData.length > 0) {
-      const prevData =
-        JSON.parse(localStorage.getItem(`quizProgress_${quiz_id}`)) || {};
-      const data = {
-        ...prevData, // ✅ Keep savedQuestions from before
+      saveState({
         currentQuestion,
         userAnswers,
         endTime: Date.now() + timeLeft * 1000,
         showScore,
         showThankYou,
         score,
-      };
-      localStorage.setItem(`quizProgress_${quiz_id}`, JSON.stringify(data));
-    }
-  }, [currentQuestion, userAnswers, timeLeft, loading, showScore, showThankYou, score]);
-
-
-  // ✅ Timer persists (does not reset on refresh)
-  useEffect(() => {
-    if (showScore || showThankYou || loading) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleNext();
-          return 0;
-        }
-        return prev - 1;
       });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [currentQuestion, showScore, loading]);
+    }
+  }, [currentQuestion, userAnswers, timeLeft, loading, showScore, showThankYou, score, saveState, quizData.length]);
+
+  useEffect(() => {
+    if (loading || showScore || showThankYou) return;
+    const q = quizData[currentQuestion];
+    const timeForQuestion = q?.timeLimit ?? 30;
+    const initialTime = timeLeft > 0 ? timeLeft : timeForQuestion;
+    setTimeLeft(initialTime);
+    startTimerFor(initialTime);
+    return () => stopTimer();
+  }, [currentQuestion, quizData, loading, showScore, showThankYou]);
+
 
   const handleAnswerChange = (value) => {
     const updated = [...userAnswers];
@@ -193,16 +175,17 @@ export default function QuizPage() {
     setUserAnswers(updated);
   };
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (currentQuestion < quizData.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-      setTimeLeft(quizData[currentQuestion + 1].timeLimit);
+      setCurrentQuestion((c) => c + 1);
+      const nextQ = quizData[currentQuestion + 1];
+      setTimeLeft(nextQ?.timeLimit ?? 30);
     } else {
       handleSubmit();
     }
-  };
+  }, [currentQuestion, quizData, userAnswers]);
 
-  const handleSubmit = async () => {
+  const computeScore = () => {
     let totalScore = 0;
     let totalPossible = 0;
 
@@ -213,40 +196,37 @@ export default function QuizPage() {
         if (ans === q.correct) totalScore += 1;
       } else if (q.type === "identification") {
         totalPossible += 1;
-        if (ans?.toLowerCase().trim() === q.answer.toLowerCase().trim()) {
+        if ((ans ?? "").toString().toLowerCase().trim() === (q.answer ?? "").toString().toLowerCase().trim()) {
           totalScore += 1;
         }
       } else if (q.type === "enumeration") {
-        const correctAnswers = (q.answers || [])
-          .map((a) => a.toLowerCase().trim())
-          .filter(Boolean);
+        const correctAnswers = (q.answers || []).map(a => a.toLowerCase().trim()).filter(Boolean);
         totalPossible += correctAnswers.length;
 
         let userInput = [];
-        if (Array.isArray(ans)) userInput = ans.map((a) => a.toLowerCase().trim());
-        else if (typeof ans === "string")
-          userInput = ans
-            .split(/[\s,]+/)
-            .map((a) => a.toLowerCase().trim())
-            .filter(Boolean);
+        if (Array.isArray(ans)) userInput = ans.map(a => a.toLowerCase().trim());
+        else if (typeof ans === "string") userInput = ans.split(/[\s,]+/).map(a => a.toLowerCase().trim()).filter(Boolean);
 
-        const matchCount = correctAnswers.filter((c) => userInput.includes(c))
-          .length;
+        const matchCount = correctAnswers.filter(c => userInput.includes(c)).length;
         totalScore += matchCount;
       }
     });
 
+    return { totalScore, totalPossible };
+  };
+
+  const handleSubmit = async () => {
+    const { totalScore, totalPossible } = computeScore();
     setScore({ totalScore, totalPossible });
     setShowScore(true);
 
-    // ✅ Save result to backend
     const resultData = {
       student_id,
       quiz_id,
       answers: quizData.map((q, i) => ({
         question: q.question,
         type: q.type,
-        user_answer: userAnswers[i] || "",
+        user_answer: userAnswers[i] ?? "",
       })),
       total_score: totalScore,
       total_possible: totalPossible,
@@ -254,230 +234,220 @@ export default function QuizPage() {
 
     try {
       const response = await postToEndpoint("save_quiz_result.php", resultData);
-      if (response.data.status === "success") {
-        console.log("✅ Quiz result saved successfully!");
+      if (response?.data?.status === "success") {
+        console.log("✅ Quiz saved to backend");
+      } else {
+        console.warn("Backend response:", response?.data);
       }
-    } catch (error) {
-      console.error("❌ Error saving result:", error);
+    } catch (err) {
+      console.error("Error saving quiz result:", err);
     }
 
-// ✅ Save completion data with timestamp
-      const completedData = {
-        showScore: true,
-        score: { totalScore, totalPossible },
-        showThankYou: false,
-        userAnswers,
-        quizCompleted: true,
-        completedAt: Date.now(), 
-      };
-      localStorage.setItem(`quizProgress_${quiz_id}`, JSON.stringify(completedData));
+    saveState({
+      showScore: true,
+      score: { totalScore, totalPossible },
+      showThankYou: false,
+      userAnswers,
+      quizCompleted: true,
+      completedAt: Date.now(),
+    });
+  };
 
+
+  useEffect(() => {
+  const handleFocusLoss = () => {
+    if (!showScore && !showThankYou) {
+      setFocusLossCount((count) => count + 1);
+      setIsBlurred(true);  
+    }
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "hidden" && !showScore && !showThankYou) {
+      setFocusLossCount((count) => count + 1);
+      setIsBlurred(true);
+    } else if (document.visibilityState === "visible") {
+      setIsBlurred(false); 
+    }
+  };
+
+  const handleResize = () => {
+    if (!showScore && !showThankYou) {
+      if (window.screenX > 1000 || window.screenY > 1000) {
+        setFocusLossCount((count) => count + 1);
+        setIsBlurred(true);
+      }
+    }
+  };
+
+  const handleFocusGain = () => {
+    setIsBlurred(false);  
+  };
+
+  window.addEventListener("blur", handleFocusLoss);
+  window.addEventListener("focus", handleFocusGain);
+  window.addEventListener("resize", handleResize);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  return () => {
+    window.removeEventListener("blur", handleFocusLoss);
+    window.removeEventListener("focus", handleFocusGain);
+    window.removeEventListener("resize", handleResize);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+  };
+}, [showScore, showThankYou]);
+
+useEffect(() => {
+  if (focusLossCount === 1) {
+    Swal.fire({
+      title: "Focus Lost!",
+      text: "You switched tabs or screens. Please stay on this page. One more attempt will auto-submit your quiz.",
+      icon: "warning",
+      confirmButtonText: "OK",
+      background: "#334155",
+      color: "#ffffff",
+    });
+  } else if (focusLossCount >= 2) {
+    Swal.fire({
+      title: "Multiple Focus Changes Detected!",
+      text: "You switched screens or tabs again. The quiz will now be submitted.",
+      icon: "error",
+      confirmButtonText: "OK",
+      background: "#334155",
+      color: "#ffffff",
+    }).then(() => handleSubmit());
+  }
+}, [focusLossCount]);
+
+
+
+  const handleQuit = () => {
+    clearState();
+    navigate(`/`);
+  };
+
+  const handleReviewAnswers = () => {
+    setShowThankYou(true);
+    stopTimer();
   };
 
   useEffect(() => {
-    if (showScore) {
-      const timer = setTimeout(() => {
-        console.log("🧹 5 minutes passed — clearing quiz data and navigating...");
-        localStorage.removeItem(`quizProgress_${quiz_id}`);
+    if (!showScore) return;
+    const t = setTimeout(() => {
+      clearState();
+      const newCode = generateRandomCode();
+      navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
+    }, 1 * 60 * 1000);  
+    return () => clearTimeout(t);
+  }, [showScore, clearState, navigate, quiz_id]);
 
-        // ✅ Regenerate new random code for redirect (optional)
-        const newCode = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map(b => b.toString(16).padStart(2, "0"))
-          .join("");
+  useEffect(() => {
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
 
-        // ✅ Redirect with random code + quiz_id + random code again
-        navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
-      }, 1 * 60 * 1000); // 5 minutes
-
-      return () => clearTimeout(timer);
+  const handleKeydown = (e) => {
+    if (
+      e.key === "F12" ||
+      (e.ctrlKey && e.shiftKey && ["I", "J"].includes(e.key)) ||
+      (e.ctrlKey && e.key === "U")
+    ) {
+      e.preventDefault();
     }
-  }, [showScore, quiz_id, navigate]);
+  };
+  document.addEventListener("keydown", handleKeydown);
+
+  const detectDevTools = () => {
+    const threshold = 160;
+    if (
+      window.outerWidth - window.innerWidth > threshold ||
+      window.outerHeight - window.innerHeight > threshold
+    ) {
+      document.body.innerHTML = "";
+      document.body.style.backgroundColor = "white";
+    }
+  };
+  const interval = setInterval(detectDevTools, 500);
+
+  return () => {
+    document.removeEventListener("keydown", handleKeydown);
+    clearInterval(interval);
+  };
+}, []);
 
 
-const percentage = score.totalPossible
-  ? Math.round((score.totalScore / score.totalPossible) * 100)
-  : 0;
+  if (loading) return <PixelLoader />;
+
+  if (!quizUser) {
+    const stored = localStorage.getItem("quizUser");
+    if (stored) setQuizUser(JSON.parse(stored));
+  }
 
 
-  const question = quizData[currentQuestion] || null;
-
-
-  // ✅ Loading state
-  if (loading) {
+  if (showScore) {
     return (
-      <PixelLoader/>
+      <>
+        <QuizResult
+          score={score}
+          onQuit={handleQuit}
+          onReview={handleReviewAnswers}
+        />
+        <Footer />
+      </>
     );
   }
 
-  // if (showThankYou) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-  //       <div className="max-w-md text-center p-8 bg-slate-800 rounded-2xl border border-slate-700">
-  //         <div className="text-6xl mb-4">🎓</div>
-  //         <h2 className="text-3xl font-bold mb-4">Thank You!</h2>
-  //         <p className="text-slate-400 mb-6">Your responses have been recorded.</p>
-  //         <button
-           
-  //           className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
-  //         >
-  //           Back to Home
-  //         </button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  const question = quizData[currentQuestion] ?? null;
 
-if (showScore) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-      <div className="max-w-md w-full p-8 bg-slate-800 rounded-2xl border border-slate-700 text-center">
-        <div className="text-6xl mb-4">🏆</div>
-        <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
-
-        <p className="text-slate-400 mb-2">You got</p>
-        <p className="text-5xl font-bold text-cyan-400 mb-2">
-          {score.totalScore} / {score.totalPossible}
-        </p>
-        <p className="text-slate-400 mb-4">correct answers</p>
-        <p className="text-3xl font-semibold text-cyan-300">{percentage}%</p>
-
-        <p className="mt-4 text-lg text-slate-300">
-          {percentage >= 90
-            ? "🌟 Excellent work!"
-            : percentage >= 75
-            ? "👍 Good job!"
-            : percentage >= 50
-            ? "🙂 Keep practicing!"
-            : "😅 Better luck next time!"}
-        </p>
-
-        <button
-          className="mt-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
-        >
-          Finish
-        </button>
-      </div>
-    </div>
-  );
-}
-
+  
 
   return (
     <>
-
       {quizUser ? (
-      <>
-      <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
-          <div className="max-w-2xl mx-auto">
-            <h1 className="text-2xl font-bold text-cyan-400 mb-3">
-              {quizUser.firstName} {quizUser.lastName}
-            </h1>
-            <div className="flex justify-between items-center mb-4">
-              <h1 className="text-2xl font-bold text-cyan-400">Quiz #{1}</h1>
-              <p className="text-slate-400">
-                Question {currentQuestion + 1} of {quizData.length}
-              </p>
-            </div>
+        <>
+        <div
+          className={`transition-all duration-500 ${
+            isBlurred ? "blur-md pointer-events-none select-none" : ""
+          }`}
+        >
+          <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
+            <LogoIcon/>
 
-            {/* Progress bar */}
-            <div className="w-full bg-slate-700 h-2 rounded-full mb-6">
-              <div
-                className="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full transition-all"
-                style={{
-                  width: `${((currentQuestion + 1) / quizData.length) * 100}%`,
-                }}
-              ></div>
-            </div>
+            <div className="max-w-2xl mx-auto">
+              <QuizHeader
+                quizUser={quizUser}
+                currentQuestion={currentQuestion}
+                totalQuestions={quizData.length}
+                onQuit={handleQuit}
+              />
 
-            {/* Question card */}
-            {question ? (
-              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
-                <div className="flex justify-between mb-4">
-                  <h2 className="text-xl font-bold">{question.question}</h2>
-                  <div className="text-right">
-                    <p className="text-slate-400 text-xs">Time Left</p>
-                    <p
-                      className={`text-2xl font-bold ${
-                        timeLeft <= 5
-                          ? "text-red-500"
-                          : timeLeft <= 10
-                          ? "text-yellow-400"
-                          : "text-cyan-400"
-                      }`}
-                    >
-                      {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
-                      {String(timeLeft % 60).padStart(2, "0")}
-                    </p>
-                  </div>
-                </div>
+              <QuizProgressBar current={currentQuestion} total={quizData.length} />
 
-                {/* Input types */}
-                {question.type === "enumeration" && (
-                  <textarea
-                    className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
-                    rows={5}
-                    placeholder="Enter your answers, separated by commas or new lines..."
-                    value={
-                      Array.isArray(userAnswers[currentQuestion])
-                        ? userAnswers[currentQuestion].join(", ")
-                        : userAnswers[currentQuestion] || ""
-                    }
-                    onChange={(e) => handleAnswerChange(e.target.value)} 
-                  />
-                )}
+              {question ? (
+                <QuizQuestion
+                  question={question}
+                  userAnswer={userAnswers[currentQuestion]}
+                  onAnswerChange={handleAnswerChange}
+                  timeLeft={timeLeft}
+                />
+              ) : (
+                <p className="text-slate-400">No question available.</p>
+              )}
 
-                {question.type === "multiple-choice" && (
-                  <div className="space-y-3">
-                    {question.options.map((opt, i) => (
-                      <button
-                        key={i}
-                        className={`w-full text-left px-4 py-3 rounded-lg border ${
-                          userAnswers[currentQuestion] === i
-                            ? "bg-cyan-600 border-cyan-600"
-                            : "bg-slate-700 border-slate-600 hover:border-cyan-400"
-                        }`}
-                        onClick={() => handleAnswerChange(i)}
-                      >
-                        {String.fromCharCode(65 + i)}. {opt}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {question.type === "identification" && (
-                  <input
-                    type="text"
-                    className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
-                    placeholder="Type your answer..."
-                    value={userAnswers[currentQuestion] || ""}
-                    onChange={(e) => handleAnswerChange(e.target.value)}
-                  />
-                )}
+              <div className="flex gap-4 mt-4">
+                <button
+                  onClick={handleNext}
+                  className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
+                >
+                  {currentQuestion === quizData.length - 1 ? "Submit Quiz" : "Next"}
+                </button>
               </div>
-            ) : (
-              <p className="text-slate-400">No question available.</p>
-            )}
-
-            {/* Navigation */}
-            <div className="flex gap-4">
-              <button
-                onClick={handleNext}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
-              >
-                {currentQuestion === quizData.length - 1 ? "Submit Quiz" : "Next"}
-              </button>
             </div>
           </div>
-        </div>
-      <footer className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p>© 2025 TLE Quiz — All Rights Reserved. Made by Sir Je (<b>Designer of the web</b>) and Sir Ajhay (<b>Engineer of the web</b>)</p>
-        </div>
-      </footer>
-      </>
-      ) 
-    : (
-        <p>Loading user info...</p>
+
+          <Footer />
+          </div>
+        </>
+      ) : (
+        <PixelLoader/>
       )}
     </>
   );
