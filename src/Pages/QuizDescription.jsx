@@ -1,17 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "../App.css";
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { postToEndpoint } from "../components/apiService";
 import Swal from "sweetalert2";
+import { getFromEndpoint } from "../components/apiService";
 
 export default function QuizDescription() {
   const [showModal, setShowModal] = useState(false);
+  const { quiz_id } = useParams(); 
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     section: "",
   });
+  const [quiz, setQuiz] = useState(null);
+  
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      try {
+        const res = await getFromEndpoint(
+          `fetch_quiz.php?quiz_id=${quiz_id}`
+        );
+        if (res.data.status === "success") {
+          setQuiz(res.data.data);
+        } else {
+          setError("Quiz not found.");
+        }
+      } catch (err) {
+        setError("Failed to fetch quiz details.");
+        console.error(err);
+      } 
+    };
+
+    fetchQuiz();
+  }, [quiz_id]);
+
   const [Error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -22,7 +46,9 @@ export default function QuizDescription() {
    try {
     const response = await postToEndpoint("check_student.php", formData);
     const data = response.data;
-    if (response.data.status === "success") {
+    if (data.status === "success") {
+      const student_id = data.student_id; // ✅ get from backend
+
       await Swal.fire({
         icon: "success",
         title: "Welcome!",
@@ -32,14 +58,23 @@ export default function QuizDescription() {
         allowEscapeKey: false,
         timerProgressBar: true,
         timer: 2500,
-        background: "#334155", 
+        background: "#334155",
         color: "#ffffff",
       });
 
-      localStorage.setItem("quizUser", JSON.stringify(formData));
+      localStorage.setItem(
+        "quizUser",
+        JSON.stringify({ ...formData, student_id })
+      );
+
       setShowModal(false);
-      navigate("/quizstart");
-    }  else if (data.status === "error") {
+
+      const randomCode = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      navigate(`/quizstart/${randomCode}/${student_id}/${quiz_id}/${randomCode}`);
+    } else if (data.status === "error") {
       let alertTitle = "";
       let alertText = data.message;
 
@@ -84,19 +119,19 @@ export default function QuizDescription() {
     <>
       {/* Main UI */}
       <div className="min-h-[92vh] flex flex-col items-center justify-center bg-slate-900 text-white">
-        <h1 className="text-4xl font-bold mb-4">Quiz #1 — Computer System Servicing</h1>
+        <h1 className="text-4xl font-bold mb-4">Quiz #{quiz?.quiz_no} - {quiz?.title}</h1>
         <p className="text-lg mb-8">
-          Test your knowledge about computer hardware and system components!
+          {quiz?.description}
         </p>
 
         <div className="flex gap-4">
-        <Link to="/landingpage">
+        {/* <Link to="/landingpage">
           <button
             className="bg-gray-600 hover:bg-gray-700 px-6 py-2 rounded-lg"
           >
             Back
           </button>
-        </Link>
+        </Link> */}
           <button
             onClick={() => setShowModal(true)} // 🔥 ito magbubukas ng modal
             className="bg-cyan-600 hover:bg-cyan-700 px-6 py-2 rounded-lg"

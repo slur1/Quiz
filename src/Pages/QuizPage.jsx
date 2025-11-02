@@ -1,104 +1,179 @@
 import { useState, useEffect } from "react";
 import "../App.css";
+import { getFromEndpoint, postToEndpoint } from "../components/apiService";
+import { useParams, useNavigate  } from "react-router-dom";
+import PixelLoader from "../components/PixelLoader";
 
 export default function QuizPage() {
-//   sa admin yung paglagay ng questions dapat may mga input field yung questions, answers,
-// timelimit and drop down type, and kapagg multiple choice
-
-      const [quizUser, setQuizUser] = useState(null)
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("quizUser")
-    if (storedUser) {
-      setQuizUser(JSON.parse(storedUser))
-    }
-  }, [])
-
-  const quizData = [
-    {
-      type: "enumeration",
-      question: "Enumerate the main components of a computer system.",
-      answers: ["CPU", "RAM", "Storage", "Motherboard"],
-      timeLimit: 60,
-    },
-    {
-      type: "enumeration",
-      question: "List the types of computer memory.",
-      answers: ["RAM", "ROM", "Cache", "Virtual Memory"],
-      timeLimit: 60,
-    },
-    {
-      type: "enumeration",
-      question: "Enumerate the steps in computer maintenance.",
-      answers: ["Cleaning", "Updating", "Defragmentation", "Backup"],
-      timeLimit: 60,
-    },
-    {
-      type: "multiple-choice",
-      question: "What does CPU stand for?",
-      options: [
-        "Central Processing Unit",
-        "Central Program Utility",
-        "Computer Personal Unit",
-        "Central Processor Utility",
-      ],
-      correct: 0,
-      timeLimit: 30,
-    },
-    {
-      type: "multiple-choice",
-      question: "Which component is responsible for temporary data storage?",
-      options: ["Hard Drive", "RAM", "ROM", "Cache"],
-      correct: 1,
-      timeLimit: 30,
-    },
-    {
-      type: "multiple-choice",
-      question: "What is the primary function of a motherboard?",
-      options: [
-        "Store data",
-        "Connect all components",
-        "Cool the system",
-        "Display graphics",
-      ],
-      correct: 1,
-      timeLimit: 30,
-    },
-    {
-      type: "identification",
-      question: "What is the name of the cooling device used in computers?",
-      answer: "fan",
-      timeLimit: 40,
-    },
-    {
-      type: "identification",
-      question: "Identify the device that converts AC power to DC power.",
-      answer: "power supply",
-      timeLimit: 40,
-    },
-    {
-      type: "identification",
-      question: "What is the name of the circuit board that holds the CPU?",
-      answer: "motherboard",
-      timeLimit: 40,
-    },
-    {
-      type: "identification",
-      question: "Identify the storage device that uses spinning platters.",
-      answer: "hard drive",
-      timeLimit: 40,
-    },
-  ];
-
+  const { quiz_id, student_id } = useParams();
+  const [quizUser, setQuizUser] = useState(null);
+  const [quizData, setQuizData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [userAnswers, setUserAnswers] = useState(Array(quizData.length).fill(null));
-  const [timeLeft, setTimeLeft] = useState(quizData[0].timeLimit);
+  const [userAnswers, setUserAnswers] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(0);
   const [showScore, setShowScore] = useState(false);
   const [score, setScore] = useState(0);
   const [showThankYou, setShowThankYou] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (showScore || showThankYou) return;
+    const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
+    if (savedProgress) {
+      const data = JSON.parse(savedProgress);
+
+      // ⏳ Check if older than 5 minutes
+      if (data.completedAt && Date.now() - data.completedAt > 1 * 60 * 1000) {
+        console.log("🧹 Quiz data expired — removing from localStorage...");
+
+        localStorage.removeItem(`quizProgress_${quiz_id}`);
+
+        // ✅ Create new random code for redirect
+        const newCode = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
+      } else {
+        setCurrentQuestion(data.currentQuestion || 0);
+        setUserAnswers(data.userAnswers || []);
+        setTimeLeft(data.timeLeft || 30);
+      }
+    }
+
+    const storedUser = localStorage.getItem("quizUser");
+    if (storedUser) setQuizUser(JSON.parse(storedUser));
+  }, [quiz_id, navigate]);
+
+
+  useEffect(() => {
+      const fetchQuestions = async () => {
+        try {
+          const res = await getFromEndpoint(`get_questions.php?quiz_id=${quiz_id}`);
+          if (res.data.status === "success" && Array.isArray(res.data.data)) {
+            const formatted = res.data.data.map((q) => {
+              const rawType = (q.question_type || q.type || "").toLowerCase().trim();
+              const type = rawType.includes("multiple")
+                ? "multiple-choice"
+                : rawType.includes("identification")
+                ? "identification"
+                : rawType.includes("enumeration")
+                ? "enumeration"
+                : "unknown";
+              const formattedQuestion = {
+                type,
+                question: q.question_text || q.question || "",
+                timeLimit: parseInt(q.time_limit) || 30,
+              };
+              if (type === "multiple-choice") {
+                formattedQuestion.options = [
+                  q.choice_a || q.choiceA,
+                  q.choice_b || q.choiceB,
+                  q.choice_c || q.choiceC,
+                  q.choice_d || q.choiceD,
+                ].filter(Boolean);
+                formattedQuestion.correct = ["A", "B", "C", "D"].indexOf(
+                  (q.correct_answer || "").toUpperCase()
+                );
+              } else if (type === "identification") {
+                formattedQuestion.answer = q.correct_answer;
+              } else if (type === "enumeration") {
+                formattedQuestion.answers = (q.correct_answer || "")
+                  .split(",")
+                  .map((a) => a.trim());
+              }
+              return formattedQuestion;
+            });
+
+              const shuffleArray = (array) => {
+              const copy = [...array];
+              for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+              }
+              return copy;
+            };
+              const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
+              if (savedProgress) {
+                const data = JSON.parse(savedProgress);
+                if (data.savedQuestions) {
+                  // ✅ Restore same randomized questions
+                  setQuizData(data.savedQuestions);
+                } else {
+                  // No saved order yet — randomize now and save it
+                  const shuffled = shuffleArray(formatted);
+                  setQuizData(shuffled);
+                  localStorage.setItem(
+                    `quizProgress_${quiz_id}`,
+                    JSON.stringify({ savedQuestions: shuffled })
+                  );
+                }
+              } else {
+                // First time quiz is loaded — randomize and save order
+                const shuffled = shuffleArray(formatted);
+                setQuizData(shuffled);
+                localStorage.setItem(
+                  `quizProgress_${quiz_id}`,
+                  JSON.stringify({ savedQuestions: shuffled })
+                );
+              }
+            if (savedProgress) {
+              const data = JSON.parse(savedProgress);
+              setCurrentQuestion(data.currentQuestion || 0);
+              setUserAnswers(data.userAnswers || []);
+              if (!data.showScore && !data.showThankYou && data.endTime) {
+                const remaining = Math.floor((data.endTime - Date.now()) / 1000);
+                setTimeLeft(remaining > 0 ? remaining : 0);
+              }
+              if (data.showScore) {
+                setScore(data.score || { totalScore: 0, totalPossible: 0 });
+                setShowScore(true);
+              } else if (data.showThankYou) {
+                setShowThankYou(true);
+              }
+            } else {
+              setTimeLeft(30);
+            }
+
+            const storedUser = localStorage.getItem("quizUser");
+            if (storedUser) setQuizUser(JSON.parse(storedUser));
+          }
+        } catch (err) {
+          console.error("Error fetching questions:", err);
+        } finally {
+          setTimeout(() => {
+            setLoading(false);
+          }, 2000);
+        }
+      };
+
+      fetchQuestions();
+    }, [quiz_id]);
+
+// AAYUSIN YUNG SA REVIEW NG SCORE.. DAPAT HINDI NAKIKITA YUNG TAMANG SAGOT SA QUESTIONS, DAPAT
+// ANG MAKIKITA LANG YUNG SAGOT NYA
+// ✅ Save progress including quiz state
+  useEffect(() => {
+    if (!loading && quizData.length > 0) {
+      const prevData =
+        JSON.parse(localStorage.getItem(`quizProgress_${quiz_id}`)) || {};
+      const data = {
+        ...prevData, // ✅ Keep savedQuestions from before
+        currentQuestion,
+        userAnswers,
+        endTime: Date.now() + timeLeft * 1000,
+        showScore,
+        showThankYou,
+        score,
+      };
+      localStorage.setItem(`quizProgress_${quiz_id}`, JSON.stringify(data));
+    }
+  }, [currentQuestion, userAnswers, timeLeft, loading, showScore, showThankYou, score]);
+
+
+  // ✅ Timer persists (does not reset on refresh)
+  useEffect(() => {
+    if (showScore || showThankYou || loading) return;
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -110,9 +185,7 @@ export default function QuizPage() {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [currentQuestion, showScore]);
-
-  const question = quizData[currentQuestion];
+  }, [currentQuestion, showScore, loading]);
 
   const handleAnswerChange = (value) => {
     const updated = [...userAnswers];
@@ -129,82 +202,177 @@ export default function QuizPage() {
     }
   };
 
-  // const handlePrev = () => {
-  //   if (currentQuestion > 0) {
-  //     setCurrentQuestion(currentQuestion - 1);
-  //     setTimeLeft(quizData[currentQuestion - 1].timeLimit);
-  //   }
-  // };
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     let totalScore = 0;
+    let totalPossible = 0;
 
     quizData.forEach((q, i) => {
       const ans = userAnswers[i];
-      if (q.type === "multiple-choice" && ans === q.correct) {
-        totalScore += 1;
-      } else if (q.type === "identification" && ans?.toLowerCase() === q.answer.toLowerCase()) {
-        totalScore += 1;
+      if (q.type === "multiple-choice") {
+        totalPossible += 1;
+        if (ans === q.correct) totalScore += 1;
+      } else if (q.type === "identification") {
+        totalPossible += 1;
+        if (ans?.toLowerCase().trim() === q.answer.toLowerCase().trim()) {
+          totalScore += 1;
+        }
       } else if (q.type === "enumeration") {
-        const matches = ans?.filter((a) =>
-          q.answers.some((c) => c.toLowerCase() === a.toLowerCase())
-        ).length;
-        totalScore += (matches || 0) / q.answers.length;
+        const correctAnswers = (q.answers || [])
+          .map((a) => a.toLowerCase().trim())
+          .filter(Boolean);
+        totalPossible += correctAnswers.length;
+
+        let userInput = [];
+        if (Array.isArray(ans)) userInput = ans.map((a) => a.toLowerCase().trim());
+        else if (typeof ans === "string")
+          userInput = ans
+            .split(/[\s,]+/)
+            .map((a) => a.toLowerCase().trim())
+            .filter(Boolean);
+
+        const matchCount = correctAnswers.filter((c) => userInput.includes(c))
+          .length;
+        totalScore += matchCount;
       }
     });
 
-    setScore(totalScore);
+    setScore({ totalScore, totalPossible });
     setShowScore(true);
+
+    // ✅ Save result to backend
+    const resultData = {
+      student_id,
+      quiz_id,
+      answers: quizData.map((q, i) => ({
+        question: q.question,
+        type: q.type,
+        user_answer: userAnswers[i] || "",
+      })),
+      total_score: totalScore,
+      total_possible: totalPossible,
+    };
+
+    try {
+      const response = await postToEndpoint("save_quiz_result.php", resultData);
+      if (response.data.status === "success") {
+        console.log("✅ Quiz result saved successfully!");
+      }
+    } catch (error) {
+      console.error("❌ Error saving result:", error);
+    }
+
+// ✅ Save completion data with timestamp
+      const completedData = {
+        showScore: true,
+        score: { totalScore, totalPossible },
+        showThankYou: false,
+        userAnswers,
+        quizCompleted: true,
+        completedAt: Date.now(), 
+      };
+      localStorage.setItem(`quizProgress_${quiz_id}`, JSON.stringify(completedData));
+
   };
 
-  const percentage = Math.round((score / quizData.length) * 100);
+  useEffect(() => {
+    if (showScore) {
+      const timer = setTimeout(() => {
+        console.log("🧹 5 minutes passed — clearing quiz data and navigating...");
+        localStorage.removeItem(`quizProgress_${quiz_id}`);
 
-  if (showThankYou) {
+        // ✅ Regenerate new random code for redirect (optional)
+        const newCode = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        // ✅ Redirect with random code + quiz_id + random code again
+        navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
+      }, 1 * 60 * 1000); // 5 minutes
+
+      return () => clearTimeout(timer);
+    }
+  }, [showScore, quiz_id, navigate]);
+
+
+const percentage = score.totalPossible
+  ? Math.round((score.totalScore / score.totalPossible) * 100)
+  : 0;
+
+
+  const question = quizData[currentQuestion] || null;
+
+
+  // ✅ Loading state
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <div className="max-w-md text-center p-8 bg-slate-800 rounded-2xl border border-slate-700">
-          <div className="text-6xl mb-4">🎓</div>
-          <h2 className="text-3xl font-bold mb-4">Thank You!</h2>
-          <p className="text-slate-400 mb-6">Your responses have been recorded.</p>
-          <button
+      <PixelLoader/>
+    );
+  }
+
+  // if (showThankYou) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+  //       <div className="max-w-md text-center p-8 bg-slate-800 rounded-2xl border border-slate-700">
+  //         <div className="text-6xl mb-4">🎓</div>
+  //         <h2 className="text-3xl font-bold mb-4">Thank You!</h2>
+  //         <p className="text-slate-400 mb-6">Your responses have been recorded.</p>
+  //         <button
            
-            className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
+  //           className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
+  //         >
+  //           Back to Home
+  //         </button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  if (showScore) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <div className="max-w-md w-full p-8 bg-slate-800 rounded-2xl border border-slate-700 text-center">
-          <div className="text-6xl mb-4">🏆</div>
-          <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
-          <p className="text-slate-400 mb-4">Your Score:</p>
-          <p className="text-5xl font-bold text-cyan-400 mb-4">{percentage}%</p>
-          <button
-            onClick={() => setShowThankYou(true)}
-            className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
-          >
-            Continue
-          </button>
-        </div>
+if (showScore) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+      <div className="max-w-md w-full p-8 bg-slate-800 rounded-2xl border border-slate-700 text-center">
+        <div className="text-6xl mb-4">🏆</div>
+        <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
+
+        <p className="text-slate-400 mb-2">You got</p>
+        <p className="text-5xl font-bold text-cyan-400 mb-2">
+          {score.totalScore} / {score.totalPossible}
+        </p>
+        <p className="text-slate-400 mb-4">correct answers</p>
+        <p className="text-3xl font-semibold text-cyan-300">{percentage}%</p>
+
+        <p className="mt-4 text-lg text-slate-300">
+          {percentage >= 90
+            ? "🌟 Excellent work!"
+            : percentage >= 75
+            ? "👍 Good job!"
+            : percentage >= 50
+            ? "🙂 Keep practicing!"
+            : "😅 Better luck next time!"}
+        </p>
+
+        <button
+          className="mt-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
+        >
+          Finish
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
 
   return (
     <>
 
       {quizUser ? (
       <>
-        <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
+      <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
           <div className="max-w-2xl mx-auto">
+            <h1 className="text-2xl font-bold text-cyan-400 mb-3">
+              {quizUser.firstName} {quizUser.lastName}
+            </h1>
             <div className="flex justify-between items-center mb-4">
-              <h1 className="text-1xl font-bold text-cyan-400">{quizUser.firstName} {quizUser.lastName}</h1>
               <h1 className="text-2xl font-bold text-cyan-400">Quiz #{1}</h1>
               <p className="text-slate-400">
                 Question {currentQuestion + 1} of {quizData.length}
@@ -221,96 +389,84 @@ export default function QuizPage() {
               ></div>
             </div>
 
-            {/* Question */}
-            <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
-              <div className="flex justify-between mb-4">
-                <h2 className="text-xl font-bold">{question.question}</h2>
-                <div className="text-right">
-                  <p className="text-slate-400 text-xs">Time Left</p>
-                  <p
-                    className={`text-2xl font-bold ${
-                      timeLeft <= 5
-                        ? "text-red-500"
-                        : timeLeft <= 10
-                        ? "text-yellow-400"
-                        : "text-cyan-400"
-                    }`}
-                  >
-                    {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
-                    {String(timeLeft % 60).padStart(2, "0")}
-                  </p>
-                </div>
-              </div>
-
-              {/* Options / Inputs */}
-              {question.type === "enumeration" && (
-                <textarea
-                  className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
-                  rows={5}
-                  placeholder="Enter your answers, one per line..."
-                  value={userAnswers[currentQuestion]?.join("\n") || ""}
-                  onChange={(e) =>
-                    handleAnswerChange(
-                      e.target.value.split("\n").filter((a) => a.trim())
-                    )
-                  }
-                />
-              )}
-
-              {question.type === "multiple-choice" && (
-                <div className="space-y-3">
-                  {question.options.map((opt, i) => (
-                    <button
-                      key={i}
-                      className={`w-full text-left px-4 py-3 rounded-lg border ${
-                        userAnswers[currentQuestion] === i
-                          ? "bg-cyan-600 border-cyan-600"
-                          : "bg-slate-700 border-slate-600 hover:border-cyan-400"
+            {/* Question card */}
+            {question ? (
+              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
+                <div className="flex justify-between mb-4">
+                  <h2 className="text-xl font-bold">{question.question}</h2>
+                  <div className="text-right">
+                    <p className="text-slate-400 text-xs">Time Left</p>
+                    <p
+                      className={`text-2xl font-bold ${
+                        timeLeft <= 5
+                          ? "text-red-500"
+                          : timeLeft <= 10
+                          ? "text-yellow-400"
+                          : "text-cyan-400"
                       }`}
-                      onClick={() => handleAnswerChange(i)}
                     >
-                      {String.fromCharCode(65 + i)}. {opt}
-                    </button>
-                  ))}
+                      {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
+                      {String(timeLeft % 60).padStart(2, "0")}
+                    </p>
+                  </div>
                 </div>
-              )}
 
-              {question.type === "identification" && (
-                <input
-                  type="text"
-                  className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
-                  placeholder="Type your answer..."
-                  value={userAnswers[currentQuestion] || ""}
-                  onChange={(e) => handleAnswerChange(e.target.value)}
-                />
-              )}
-            </div>
+                {/* Input types */}
+                {question.type === "enumeration" && (
+                  <textarea
+                    className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
+                    rows={5}
+                    placeholder="Enter your answers, separated by commas or new lines..."
+                    value={
+                      Array.isArray(userAnswers[currentQuestion])
+                        ? userAnswers[currentQuestion].join(", ")
+                        : userAnswers[currentQuestion] || ""
+                    }
+                    onChange={(e) => handleAnswerChange(e.target.value)} 
+                  />
+                )}
+
+                {question.type === "multiple-choice" && (
+                  <div className="space-y-3">
+                    {question.options.map((opt, i) => (
+                      <button
+                        key={i}
+                        className={`w-full text-left px-4 py-3 rounded-lg border ${
+                          userAnswers[currentQuestion] === i
+                            ? "bg-cyan-600 border-cyan-600"
+                            : "bg-slate-700 border-slate-600 hover:border-cyan-400"
+                        }`}
+                        onClick={() => handleAnswerChange(i)}
+                      >
+                        {String.fromCharCode(65 + i)}. {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {question.type === "identification" && (
+                  <input
+                    type="text"
+                    className="w-full bg-slate-700 rounded-lg p-3 text-white focus:outline-none"
+                    placeholder="Type your answer..."
+                    value={userAnswers[currentQuestion] || ""}
+                    onChange={(e) => handleAnswerChange(e.target.value)}
+                  />
+                )}
+              </div>
+            ) : (
+              <p className="text-slate-400">No question available.</p>
+            )}
 
             {/* Navigation */}
-        <div className="flex gap-4">
-          <button
-            onClick={handleNext}
-            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
-          >
-            {currentQuestion === quizData.length - 1 ? "Submit Quiz" : (
-              <>
-                Next
-                
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </>
-            )}
-          </button>
-        </div>
-
+            <div className="flex gap-4">
+              <button
+                onClick={handleNext}
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 py-3 rounded-lg"
+              >
+                {currentQuestion === quizData.length - 1 ? "Submit Quiz" : "Next"}
+              </button>
+            </div>
           </div>
         </div>
       <footer className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white py-6">
