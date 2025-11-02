@@ -4,6 +4,11 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { postToEndpoint } from "../components/apiService";
 import Swal from "sweetalert2";
 import { getFromEndpoint } from "../components/apiService";
+import Footer from "../components/Footer";
+import LogoIcon from "../components/LogoIcon";
+import LogoCSS from "../assets/CSS2.png"
+import Cover from "../assets/pixel.png";
+import PixelLoader from "../components/PixelLoader";
 
 export default function QuizDescription() {
   const [showModal, setShowModal] = useState(false);
@@ -15,13 +20,11 @@ export default function QuizDescription() {
     section: "",
   });
   const [quiz, setQuiz] = useState(null);
-  
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
-        const res = await getFromEndpoint(
-          `fetch_quiz.php?quiz_id=${quiz_id}`
-        );
+        const res = await getFromEndpoint(`fetch_quiz.php?quiz_id=${quiz_id}`);
         if (res.data.status === "success") {
           setQuiz(res.data.data);
         } else {
@@ -30,11 +33,14 @@ export default function QuizDescription() {
       } catch (err) {
         setError("Failed to fetch quiz details.");
         console.error(err);
-      } 
+      } finally {
+        setTimeout(() => setLoading(false), 2000);  
+      }
     };
 
     fetchQuiz();
   }, [quiz_id]);
+
 
   const [Error, setError] = useState("");
   const navigate = useNavigate();
@@ -118,33 +124,44 @@ export default function QuizDescription() {
   return (
     <>
       {/* Main UI */}
-      <div className="min-h-[92vh] flex flex-col items-center justify-center bg-slate-900 text-white">
-        <h1 className="text-4xl font-bold mb-4">Quiz #{quiz?.quiz_no} - {quiz?.title}</h1>
-        <p className="text-lg mb-8">
-          {quiz?.description}
-        </p>
+  {loading ? (<PixelLoader/>) : (  
+  <>
+      <LogoIcon/>
+      <div className="min-h-[80vh] flex items-center justify-center bg-slate-900 text-white px-4">
+          <div className="bg-slate-800/70 backdrop-blur-md border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden transition-transform duration-300 hover:-translate-y-1 hover:shadow-cyan-800/40">
+            <div className="relative w-full h-48 bg-cover bg-center" style={{ backgroundImage: `url(${Cover})` }}>
+              <div className="absolute inset-0 bg-black/40"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="rounded-full overflow-hidden w-[8rem] h-[8rem] bg-slate-900/70 border-4 border-slate-800 shadow-lg">
+                  <img
+                    src={LogoCSS}
+                    alt="Pixel logo"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
 
-        <div className="flex gap-4">
-        {/* <Link to="/landingpage">
-          <button
-            className="bg-gray-600 hover:bg-gray-700 px-6 py-2 rounded-lg"
-          >
-            Back
-          </button>
-        </Link> */}
-          <button
-            onClick={() => setShowModal(true)} // 🔥 ito magbubukas ng modal
-            className="bg-cyan-600 hover:bg-cyan-700 px-6 py-2 rounded-lg"
-          >
-            Start Quiz
-          </button>
-        </div>
+            </div>
+            {/* 🔹 Card Content */}
+            <div className="p-8 text-center">
+              <h1 className="text-3xl font-bold mb-4 text-cyan-400">
+                Quiz #{quiz?.quiz_no} - {quiz?.title}
+              </h1>
+              <p className="text-lg mb-8 text-slate-300 leading-relaxed">
+                {quiz?.description}
+              </p>
+
+              <button
+                onClick={() => setShowModal(true)} // 🔥 opens modal
+                className="bg-cyan-600 hover:bg-cyan-700 active:scale-95 px-8 py-3 rounded-lg font-semibold shadow-md transition-all duration-200"
+              >
+                Start Quiz
+              </button>
+            </div>
+          </div>
       </div>
-       <footer className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p>© 2025 TLE Quiz — All Rights Reserved. Made by Sir Je (<b>Designer of the web</b>) and Sir Ajhay (<b>Engineer of the web</b>)</p>
-        </div>
-      </footer>
+      <Footer/>
+  </>)}
 
       {/* Registration Modal */}
       {showModal && (
