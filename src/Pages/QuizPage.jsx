@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import "../App.css";
-import { getFromEndpoint } from "../components/apiService";
-import { useParams } from "react-router-dom";
+import { getFromEndpoint, postToEndpoint } from "../components/apiService";
+import { useParams, useNavigate  } from "react-router-dom";
+import PixelLoader from "../components/PixelLoader";
 
 export default function QuizPage() {
   const { quiz_id, student_id } = useParams();
@@ -14,22 +15,35 @@ export default function QuizPage() {
   const [showScore, setShowScore] = useState(false);
   const [score, setScore] = useState(0);
   const [showThankYou, setShowThankYou] = useState(false);
-  const [showReview, setShowReview] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
     if (savedProgress) {
       const data = JSON.parse(savedProgress);
-      setCurrentQuestion(data.currentQuestion || 0);
-      setUserAnswers(data.userAnswers || []);
-      setTimeLeft(data.timeLeft || 30);
+
+      // ⏳ Check if older than 5 minutes
+      if (data.completedAt && Date.now() - data.completedAt > 1 * 60 * 1000) {
+        console.log("🧹 Quiz data expired — removing from localStorage...");
+
+        localStorage.removeItem(`quizProgress_${quiz_id}`);
+
+        // ✅ Create new random code for redirect
+        const newCode = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
+      } else {
+        setCurrentQuestion(data.currentQuestion || 0);
+        setUserAnswers(data.userAnswers || []);
+        setTimeLeft(data.timeLeft || 30);
+      }
     }
 
     const storedUser = localStorage.getItem("quizUser");
-    if (storedUser) {
-      setQuizUser(JSON.parse(storedUser));
-    }
-  }, [quiz_id]);
+    if (storedUser) setQuizUser(JSON.parse(storedUser));
+  }, [quiz_id, navigate]);
 
 
   useEffect(() => {
@@ -71,16 +85,38 @@ export default function QuizPage() {
               return formattedQuestion;
             });
 
-            // ✅ RANDOMIZE QUESTIONS HERE (Fisher–Yates Shuffle)
-            for (let i = formatted.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [formatted[i], formatted[j]] = [formatted[j], formatted[i]];
-            }
-
-            setQuizData(formatted);
-
-            // ✅ Restore progress if any
-            const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
+              const shuffleArray = (array) => {
+              const copy = [...array];
+              for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+              }
+              return copy;
+            };
+              const savedProgress = localStorage.getItem(`quizProgress_${quiz_id}`);
+              if (savedProgress) {
+                const data = JSON.parse(savedProgress);
+                if (data.savedQuestions) {
+                  // ✅ Restore same randomized questions
+                  setQuizData(data.savedQuestions);
+                } else {
+                  // No saved order yet — randomize now and save it
+                  const shuffled = shuffleArray(formatted);
+                  setQuizData(shuffled);
+                  localStorage.setItem(
+                    `quizProgress_${quiz_id}`,
+                    JSON.stringify({ savedQuestions: shuffled })
+                  );
+                }
+              } else {
+                // First time quiz is loaded — randomize and save order
+                const shuffled = shuffleArray(formatted);
+                setQuizData(shuffled);
+                localStorage.setItem(
+                  `quizProgress_${quiz_id}`,
+                  JSON.stringify({ savedQuestions: shuffled })
+                );
+              }
             if (savedProgress) {
               const data = JSON.parse(savedProgress);
               setCurrentQuestion(data.currentQuestion || 0);
@@ -105,7 +141,9 @@ export default function QuizPage() {
         } catch (err) {
           console.error("Error fetching questions:", err);
         } finally {
-          setLoading(false);
+          setTimeout(() => {
+            setLoading(false);
+          }, 2000);
         }
       };
 
@@ -117,7 +155,10 @@ export default function QuizPage() {
 // ✅ Save progress including quiz state
   useEffect(() => {
     if (!loading && quizData.length > 0) {
+      const prevData =
+        JSON.parse(localStorage.getItem(`quizProgress_${quiz_id}`)) || {};
       const data = {
+        ...prevData, // ✅ Keep savedQuestions from before
         currentQuestion,
         userAnswers,
         endTime: Date.now() + timeLeft * 1000,
@@ -161,7 +202,7 @@ export default function QuizPage() {
     }
   };
 
- const handleSubmit = () => {
+  const handleSubmit = async () => {
     let totalScore = 0;
     let totalPossible = 0;
 
@@ -178,22 +219,19 @@ export default function QuizPage() {
       } else if (q.type === "enumeration") {
         const correctAnswers = (q.answers || [])
           .map((a) => a.toLowerCase().trim())
-          .filter((a) => a !== "");
+          .filter(Boolean);
         totalPossible += correctAnswers.length;
+
         let userInput = [];
-        if (Array.isArray(ans)) {
-          userInput = ans.map((a) => a.toLowerCase().trim());
-        } else if (typeof ans === "string") {
+        if (Array.isArray(ans)) userInput = ans.map((a) => a.toLowerCase().trim());
+        else if (typeof ans === "string")
           userInput = ans
-            .split(/[\s,]+/) 
+            .split(/[\s,]+/)
             .map((a) => a.toLowerCase().trim())
-            .filter((a) => a !== "");
-        }
-        console.log("✅ ENUM CHECK:", { correctAnswers, userInput });
-        let matchCount = 0;
-        correctAnswers.forEach((correct) => {
-          if (userInput.includes(correct)) matchCount++;
-        });
+            .filter(Boolean);
+
+        const matchCount = correctAnswers.filter((c) => userInput.includes(c))
+          .length;
         totalScore += matchCount;
       }
     });
@@ -201,9 +239,60 @@ export default function QuizPage() {
     setScore({ totalScore, totalPossible });
     setShowScore(true);
 
-    // ✅ Clear saved progress after submission
-    localStorage.removeItem(`quizProgress_${quiz_id}`);
+    // ✅ Save result to backend
+    const resultData = {
+      student_id,
+      quiz_id,
+      answers: quizData.map((q, i) => ({
+        question: q.question,
+        type: q.type,
+        user_answer: userAnswers[i] || "",
+      })),
+      total_score: totalScore,
+      total_possible: totalPossible,
+    };
+
+    try {
+      const response = await postToEndpoint("save_quiz_result.php", resultData);
+      if (response.data.status === "success") {
+        console.log("✅ Quiz result saved successfully!");
+      }
+    } catch (error) {
+      console.error("❌ Error saving result:", error);
+    }
+
+// ✅ Save completion data with timestamp
+      const completedData = {
+        showScore: true,
+        score: { totalScore, totalPossible },
+        showThankYou: false,
+        userAnswers,
+        quizCompleted: true,
+        completedAt: Date.now(), 
+      };
+      localStorage.setItem(`quizProgress_${quiz_id}`, JSON.stringify(completedData));
+
   };
+
+  useEffect(() => {
+    if (showScore) {
+      const timer = setTimeout(() => {
+        console.log("🧹 5 minutes passed — clearing quiz data and navigating...");
+        localStorage.removeItem(`quizProgress_${quiz_id}`);
+
+        // ✅ Regenerate new random code for redirect (optional)
+        const newCode = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        // ✅ Redirect with random code + quiz_id + random code again
+        navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
+      }, 1 * 60 * 1000); // 5 minutes
+
+      return () => clearTimeout(timer);
+    }
+  }, [showScore, quiz_id, navigate]);
+
 
 const percentage = score.totalPossible
   ? Math.round((score.totalScore / score.totalPossible) * 100)
@@ -216,205 +305,9 @@ const percentage = score.totalPossible
   // ✅ Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <p>Loading quiz questions...</p>
-      </div>
+      <PixelLoader/>
     );
   }
-
-if (showReview) {
-  return (
-    <div className="min-h-screen bg-slate-900 text-white p-6">
-      <div className="max-w-3xl mx-auto">
-        {/* Header Section */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-cyan-400">📝 Quiz Review</h2>
-
-          {/* 🔙 Back Button */}
-          <button
-            onClick={() => setShowReview(false)}
-            className="bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 rounded-lg transition"
-          >
-            ← Back
-          </button>
-        </div>
-
-        {/* Questions with Points */}
-        {quizData.map((q, i) => {
-          const userAns = userAnswers[i];
-          let earned = 0;
-          let possible = 1;
-
-          // 🧮 Compute points per question
-          if (q.type === "multiple-choice") {
-            possible = 1;
-            earned = userAns === q.correct ? 1 : 0;
-          } else if (q.type === "identification") {
-            possible = 1;
-            earned =
-              userAns?.toLowerCase().trim() === q.answer?.toLowerCase().trim()
-                ? 1
-                : 0;
-          } else if (q.type === "enumeration") {
-            // ✅ Clean and reliable enumeration scoring
-              const correct = (q.answers || [])
-                .map((a) => a.toLowerCase().trim())
-                .filter(Boolean);
-              possible = correct.length;
-
-              let userList = [];
-              if (Array.isArray(userAns)) {
-                userList = userAns.map((a) => a.toLowerCase().trim());
-              } else if (typeof userAns === "string") {
-                userList = userAns
-                  .split(/[\s,]+/) // ✅ handles spaces, commas, and newlines
-                  .map((a) => a.toLowerCase().trim())
-                  .filter(Boolean);
-              }
-
-              // ✅ Count how many correct answers the user got
-              earned = correct.filter((ans) => userList.includes(ans)).length;
-          }
-
-          const isCorrect = earned === possible;
-          const correctLetter =
-            q.type === "multiple-choice"
-              ? String.fromCharCode(65 + q.correct)
-              : null;
-
-          return (
-            <div
-              key={i}
-              className="bg-slate-800 p-5 rounded-2xl mb-4 border border-slate-700"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-semibold">
-                  {i + 1}. {q.question}
-                </h3>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    isCorrect
-                      ? "bg-green-500/20 text-green-400"
-                      : "bg-yellow-500/20 text-yellow-400"
-                  }`}
-                >
-                  {earned}/{possible} point{possible > 1 ? "s" : ""}
-                </span>
-              </div>
-
-              {/* Multiple choice */}
-              {q.type === "multiple-choice" && (
-                <div className="space-y-2 mt-2">
-                  {q.options.map((opt, idx) => {
-                    const letter = String.fromCharCode(65 + idx);
-                    const isUserChoice = userAns === idx;
-                    const isRight = q.correct === idx;
-                    return (
-                      <div
-                        key={idx}
-                        className={`p-2 rounded-lg border ${
-                          isRight
-                            ? "border-green-500 bg-green-900/30"
-                            : isUserChoice
-                            ? "border-red-500 bg-red-900/30"
-                            : "border-slate-700"
-                        }`}
-                      >
-                        {letter}. {opt}
-                      </div>
-                    );
-                  })}
-                  {!isCorrect && (
-                    <p className="mt-3 text-sm text-green-400">
-                      ✅ Correct answer: {correctLetter}. {q.options[q.correct]}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Identification */}
-              {q.type === "identification" && (
-                <div className="mt-3">
-                  <p>
-                    <span className="font-semibold text-slate-400">
-                      Your answer:
-                    </span>{" "}
-                    <span
-                      className={
-                        isCorrect ? "text-green-400" : "text-red-400"
-                      }
-                    >
-                      {userAns || "(No answer)"}
-                    </span>
-                  </p>
-                  {!isCorrect && (
-                    <p>
-                      <span className="font-semibold text-slate-400">
-                        Correct answer:
-                      </span>{" "}
-                      <span className="text-green-400">{q.answer}</span>
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Enumeration */}
-              {q.type === "enumeration" && (
-                <div className="mt-3">
-                  <p className="font-semibold text-slate-400 mb-1">
-                    Your answers:
-                  </p>
-                  <ul className="list-disc list-inside mb-2">
-                    {(Array.isArray(userAns)
-                      ? userAns
-                      : (userAns || "").split(/[\s,]+/)
-                    ).map((ans, idx) => (
-                      <li key={idx} className="text-slate-300">
-                        {ans.trim()}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="font-semibold text-slate-400 mb-1">
-                    Correct answers:
-                  </p>
-                  <ul className="list-disc list-inside">
-                    {(q.answers || []).map((ans, idx) => (
-                      <li
-                        key={idx}
-                        className={`${
-                          (userAns || "")
-                            .toLowerCase()
-                            .includes(ans.toLowerCase().trim())
-                            ? "text-green-400"
-                            : "text-red-400"
-                        }`}
-                      >
-                        {ans}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Finish Button */}
-        <div className="text-center mt-8">
-          <button
-            onClick={() => setShowThankYou(true)}
-            className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
-          >
-            Finish
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
 
   // if (showThankYou) {
   //   return (
@@ -459,10 +352,9 @@ if (showScore) {
         </p>
 
         <button
-          onClick={() => setShowReview(true)}
           className="mt-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 px-6 py-3 rounded-lg text-white font-semibold"
         >
-          Review Answers
+          Finish
         </button>
       </div>
     </div>

@@ -1,0 +1,111 @@
+.pixel-loader {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #10011c;
+  background-image: radial-gradient(circle, #072777 0%, #0f172a  70%);
+  font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+  position: relative;
+}
+
+/* Canvas background */
+#particle-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0.6;
+}
+
+/* Loader content */
+.loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  z-index: 2;
+  position: relative;
+}
+
+/* Image + scan line */
+.image-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  animation: pulse-image 2.5s infinite ease-in-out;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3),
+              0 0 30px rgba(0, 255, 255, 0.2),
+              0 0 50px rgba(190, 79, 255, 0.2);
+}
+
+.pixel-icon {
+  display: block;
+  width: 120px;
+  height: 120px;
+  border-radius: 20px;
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 10px #00ffff, 0 0 5px #fff;
+  opacity: 0.7;
+  animation: scan 1.4s infinite linear;
+}
+
+/* Glowing text */
+.loader-text {
+  font-size: 1rem;
+  letter-spacing: 2px;
+  color: #f0f0f0;
+  text-shadow: 0 0 5px #fff,
+               0 0 10px #fff,
+               0 0 15px #00ffff,
+               0 0 20px #00ffff;
+  animation: pulse-text 1s infinite ease-in-out;
+}
+
+/* Keyframes */
+@keyframes pulse-image {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+}
+
+@keyframes scan {
+  0% { transform: translateY(-10px); opacity: 0; }
+  10%, 90% { opacity: 0.7; }
+  100% { transform: translateY(210px); opacity: 0; }
+}
+
+@keyframes pulse-text {
+  0%, 100% {
+    opacity: 0.8;
+    text-shadow: 0 0 5px #fff,
+                 0 0 10px #fff,
+                 0 0 15px #00ffff,
+                 0 0 20px #00ffff;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 5px #fff,
+                 0 0 12px #fff,
+                 0 0 20px #00ffff,
+                 0 0 25px #00ffff,
+                 0 0 30px #be4fff;
+  }
+}

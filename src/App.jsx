@@ -4,6 +4,7 @@ import QuizPage from "./Pages/QuizPage"
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Error from "./Pages/404"
 import AddQuestion from "./admin/AddQuestion"
+import PixelLoader from "./components/PixelLoader"
 
 export default function App() {
 
@@ -17,6 +18,7 @@ export default function App() {
         <Route path ="/quiz/:randomCode/:quiz_id/:randomCode" element ={<QuizDescription/>} />
         <Route path ="/quizstart/:randomCode/:student_id/:quiz_id/:randomCode" element ={<QuizPage/>} />
         <Route path ="/addingquestions" element ={<AddQuestion/>} />
+        <Route path ="/loader" element ={<PixelLoader/>} />
       </Routes>
     </BrowserRouter>
 
