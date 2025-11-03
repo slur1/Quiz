@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import "../App.css";
 import { getFromEndpoint, postToEndpoint } from "../components/apiService";
 import { useParams, useNavigate } from "react-router-dom";
@@ -29,6 +29,7 @@ export default function QuizPage() {
   const [showThankYou, setShowThankYou] = useState(false);
   const [focusLossCount, setFocusLossCount] = useState(0);
   const [isBlurred, setIsBlurred] = useState(false);
+  const isAdvancingRef = useRef(false);
   const {
     restoreState,
     saveState,
@@ -165,7 +166,7 @@ export default function QuizPage() {
     const initialTime = timeLeft > 0 ? timeLeft : timeForQuestion;
     setTimeLeft(initialTime);
     startTimerFor(initialTime);
-    return () => stopTimer();
+    return () => stopTimer(); // cleanup
   }, [currentQuestion, quizData, loading, showScore, showThankYou]);
 
 
@@ -173,17 +174,17 @@ export default function QuizPage() {
     const updated = [...userAnswers];
     updated[currentQuestion] = value;
     setUserAnswers(updated);
+    saveState({
+      currentQuestion,
+      userAnswers: updated,
+      endTime: Date.now() + timeLeft * 1000,
+      showScore,
+      showThankYou,
+      score,
+    });
   };
 
-  const handleNext = useCallback(() => {
-    if (currentQuestion < quizData.length - 1) {
-      setCurrentQuestion((c) => c + 1);
-      const nextQ = quizData[currentQuestion + 1];
-      setTimeLeft(nextQ?.timeLimit ?? 30);
-    } else {
-      handleSubmit();
-    }
-  }, [currentQuestion, quizData, userAnswers]);
+
 
   const computeScore = () => {
     let totalScore = 0;
@@ -253,35 +254,74 @@ export default function QuizPage() {
     });
   };
 
+const handleNext = useCallback(() => {
+  // 🚫 Prevent double call
+  if (isAdvancingRef.current) return;
+  isAdvancingRef.current = true;
+
+  stopTimer();
+
+  if (currentQuestion < quizData.length - 1) {
+    setCurrentQuestion((c) => c + 1);
+    const nextQ = quizData[currentQuestion + 1];
+    setTimeLeft(nextQ?.timeLimit ?? 30);
+  } else {
+    handleSubmit();
+  }
+
+  // ✅ Allow next call after short delay
+  setTimeout(() => {
+    isAdvancingRef.current = false;
+  }, 500);
+}, [currentQuestion, quizData, stopTimer, handleSubmit]);
+
 
   useEffect(() => {
+  let focusRecentlyLost = false;
   const handleFocusLoss = () => {
-    if (!showScore && !showThankYou) {
+    if (!showScore && !showThankYou && !focusRecentlyLost) {
+      focusRecentlyLost = true;
       setFocusLossCount((count) => count + 1);
-      setIsBlurred(true);  
+      setIsBlurred(true);
+
+      setTimeout(() => {
+        focusRecentlyLost = false;
+      }, 1000);
     }
+  };
+  const handleFocusGain = () => {
+    setIsBlurred(false);
   };
 
   const handleVisibilityChange = () => {
-    if (document.visibilityState === "hidden" && !showScore && !showThankYou) {
+    if (
+      document.visibilityState === "hidden" &&
+      !showScore &&
+      !showThankYou &&
+      !focusRecentlyLost
+    ) {
+      focusRecentlyLost = true;
       setFocusLossCount((count) => count + 1);
       setIsBlurred(true);
+
+      setTimeout(() => {
+        focusRecentlyLost = false;
+      }, 1000);
     } else if (document.visibilityState === "visible") {
-      setIsBlurred(false); 
+      setIsBlurred(false);
     }
   };
 
   const handleResize = () => {
-    if (!showScore && !showThankYou) {
-      if (window.screenX > 1000 || window.screenY > 1000) {
-        setFocusLossCount((count) => count + 1);
-        setIsBlurred(true);
-      }
-    }
-  };
+    if (!showScore && !showThankYou && !focusRecentlyLost) {
+      focusRecentlyLost = true;
+      setFocusLossCount((count) => count + 1);
+      setIsBlurred(true);
 
-  const handleFocusGain = () => {
-    setIsBlurred(false);  
+      setTimeout(() => {
+        focusRecentlyLost = false;
+      }, 1000);
+    }
   };
 
   window.addEventListener("blur", handleFocusLoss);

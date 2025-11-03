@@ -1,10 +1,15 @@
 // src/hooks/useQuizTimer.js
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
-// onExpire: callback to execute when timer hits 0
 export default function useQuizTimer({ onExpire }) {
   const [timeLeft, setTimeLeft] = useState(0);
   const timerRef = useRef(null);
+  const onExpireRef = useRef(onExpire);
+
+  // ✅ keep onExpire ref updated to avoid stale closure
+  useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -14,19 +19,22 @@ export default function useQuizTimer({ onExpire }) {
   }, []);
 
   const startTimerFor = useCallback((initialSeconds) => {
-    stopTimer();
+    stopTimer(); // ✅ ensure no overlapping timers
     setTimeLeft(initialSeconds ?? 30);
+
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          stopTimer();
-          if (typeof onExpire === "function") onExpire();
-          return 0;
-        }
+      setTimeLeft((prev) => {
+            if (prev <= 1) {
+            stopTimer();
+            if (typeof onExpireRef.current === "function") {
+                onExpireRef.current();
+            }
+            return 0;
+            }
         return prev - 1;
       });
     }, 1000);
-  }, [onExpire, stopTimer]);
+  }, [stopTimer]);
 
   return {
     timeLeft,
