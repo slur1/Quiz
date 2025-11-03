@@ -363,7 +363,7 @@ useEffect(() => {
 
   const handleQuit = () => {
     clearState();
-    navigate(`/`);
+    navigate(`/thankyou`);
   };
 
   const handleReviewAnswers = () => {
@@ -425,6 +425,7 @@ useEffect(() => {
   if (showScore) {
     return (
       <>
+      <LogoIcon/>
         <QuizResult
           score={score}
           onQuit={handleQuit}

@@ -1,4 +1,3 @@
-// src/components/QuizQuestion.jsx
 export default function QuizQuestion({ question, userAnswer, onAnswerChange, timeLeft }) {
   return (
     <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
