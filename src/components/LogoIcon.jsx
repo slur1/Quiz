@@ -8,7 +8,7 @@ export default function LogoIcon() {
         <img src={Pixel} alt="Pixel logo" className="w-20 h-20" />
       </div>
       <h1 className="text-2xl font-bold text-white tracking-wide">
-        Quizo
+        Pixel
       </h1>
     </div>
   );

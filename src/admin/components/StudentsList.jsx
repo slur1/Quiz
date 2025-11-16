@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
+import { getFromEndpoint, postToEndpoint } from "../../components/apiService";
 
 export default function StudentsList() {
   const [students, setStudents] = useState([]);
@@ -12,45 +13,81 @@ export default function StudentsList() {
     section: "",
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      const res = await getFromEndpoint("get_students.php");
+      if (res.data.status === "success") {
+        setStudents(res.data.data);
+      } else {
+        setStudents([]);
+      }
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (
-      formData.firstName &&
-      formData.lastName &&
-      formData.email &&
-      formData.gender &&
-      formData.section
-    ) {
-      setStudents((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          ...formData,
-        },
-      ]);
-      setFormData({
-        firstName: "",
-        lastName: "",
-        email: "",
-        gender: "",
-        section: "",
-      });
-      setShowForm(false);
+    if (formData.firstName && formData.lastName && formData.email && formData.gender && formData.section) {
+      try {
+        const res = await postToEndpoint("add_student.php", formData);
+        if (res.data.status === "success") {
+          fetchStudents();
+          setFormData({ firstName: "", lastName: "", email: "", gender: "", section: "" });
+          setShowForm(false);
+        } else {
+          alert(res.data.message);
+        }
+      } catch (error) {
+        console.error("Error adding student:", error);
+      }
     }
   };
 
-  const handleDelete = (id) => {
-    setStudents((prev) => prev.filter((student) => student.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this student?")) return;
+    try {
+      const res = await postToEndpoint("delete_student.php", { id });
+      if (res.data.status === "success") fetchStudents();
+      else alert("Failed to delete student");
+    } catch (error) {
+      console.error("Error deleting student:", error);
+    }
+  };
+
+  // Pagination logic
+  const indexOfLast = currentPage * rowsPerPage;
+  const indexOfFirst = indexOfLast - rowsPerPage;
+  const currentStudents = students.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(students.length / rowsPerPage);
+
+  const handleRowsPerPageChange = (e) => {
+    setRowsPerPage(Number(e.target.value));
+    setCurrentPage(1); // reset to first page
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) setCurrentPage((prev) => prev - 1);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
   };
 
   return (
     <div className="space-y-6">
-      
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
@@ -60,7 +97,6 @@ export default function StudentsList() {
         </button>
       )}
 
-      
       {showForm && (
         <div className="bg-white border border-gray-300 rounded-lg p-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
@@ -85,7 +121,7 @@ export default function StudentsList() {
                   value={formData.firstName}
                   onChange={handleChange}
                   placeholder="First name"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
 
@@ -99,7 +135,7 @@ export default function StudentsList() {
                   value={formData.lastName}
                   onChange={handleChange}
                   placeholder="Last name"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
 
@@ -113,7 +149,7 @@ export default function StudentsList() {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="student@example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
 
@@ -125,7 +161,7 @@ export default function StudentsList() {
                   name="gender"
                   value={formData.gender}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
                   <option value="">Select Gender</option>
                   <option value="Male">Male</option>
@@ -144,7 +180,7 @@ export default function StudentsList() {
                   value={formData.section}
                   onChange={handleChange}
                   placeholder="e.g., Section A"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
             </div>
@@ -168,35 +204,52 @@ export default function StudentsList() {
         </div>
       )}
 
-      
       {students.length > 0 && (
         <div className="bg-white border border-gray-300 rounded-lg p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">
-            Students List ({students.length})
-          </h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-gray-800">
+              Students List ({students.length})
+            </h3>
+
+            <div className="flex items-center gap-2">
+              <label>Rows per page:</label>
+              <select
+                value={rowsPerPage}
+                onChange={handleRowsPerPageChange}
+                className="border border-gray-300 rounded-lg px-2 py-1"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-300 bg-gray-50">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Email</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Gender</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Section</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Action</th>
+                  <th className="text-left py-3 px-4">No.</th>
+                  <th className="text-left py-3 px-4">Name</th>
+                  <th className="text-left py-3 px-4">Email</th>
+                  <th className="text-left py-3 px-4">Gender</th>
+                  <th className="text-left py-3 px-4">Section</th>
+                  <th className="text-left py-3 px-4">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {students.map((student) => (
-                  <tr
-                    key={student.id}
-                    className="border-b border-gray-200 hover:bg-gray-50"
-                  >
+                {currentStudents.map((student, index) => (
+                  <tr key={student.id} className="border-b border-gray-200 hover:bg-gray-50">
+                     <td className="py-3 px-4 text-gray-700">
+                      {(currentPage - 1) * rowsPerPage + index + 1}
+                    </td>
                     <td className="py-3 px-4 text-gray-800">
-                      {student.firstName} {student.lastName}
+                      {student.lastname}, {student.firstname}
                     </td>
                     <td className="py-3 px-4 text-gray-600">{student.email}</td>
                     <td className="py-3 px-4 text-gray-700">{student.gender}</td>
-                    <td className="py-3 px-4 text-gray-700">{student.section}</td>
+                    <td className="py-3 px-4 text-gray-700">{student.section_name || student.section}</td>
                     <td className="py-3 px-4">
                       <button
                         onClick={() => handleDelete(student.id)}
@@ -211,10 +264,29 @@ export default function StudentsList() {
               </tbody>
             </table>
           </div>
+          {/* Pagination controls */}
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={handlePrevPage}
+              disabled={currentPage === 1}
+              className="px-3 py-1 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
 
-      
       {!showForm && students.length === 0 && (
         <div className="bg-white border border-gray-300 rounded-lg p-12 text-center shadow-sm">
           <p className="text-gray-500 mb-4">No students added yet.</p>

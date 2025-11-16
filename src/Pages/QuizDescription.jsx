@@ -45,15 +45,34 @@ export default function QuizDescription() {
   const [Error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");  
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
 
-   try {
+  try {
     const response = await postToEndpoint("check_student.php", formData);
     const data = response.data;
+
     if (data.status === "success") {
-      const student_id = data.student_id; // ✅ get from backend
+      const student_id = data.student_id;
+
+      const checkAttempt = await postToEndpoint("check_quiz_attempt.php", {
+        student_id,
+        quiz_id,
+      });
+
+      if (checkAttempt.data.status === "already_taken") {
+        await Swal.fire({
+          icon: "warning",
+          title: "Quiz Already Taken",
+          text: "You have already completed this quiz.",
+          confirmButtonColor: "#f59e0b",
+          background: "#334155",
+          color: "#ffffff",
+        });
+        setShowModal(false);
+        return; 
+      }
 
       await Swal.fire({
         icon: "success",
@@ -120,7 +139,7 @@ export default function QuizDescription() {
       confirmButtonColor: "#ef4444",
     });
   }
-  };
+};
   return (
     <>
       {/* Main UI */}

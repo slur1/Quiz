@@ -10,8 +10,6 @@ import Dashboard from "./admin/Dashboard";
 import ThankYou from "./components/ThankYouPage";
 
 
-
-
 export default function App() {
   return (
     <BrowserRouter>

@@ -4,16 +4,24 @@ import {
   Users,
   BookOpen,
   Layers,
+  CircleStar,
   LogOut,
+  BadgePlus,
+  UserStar,
+  Settings,
 } from "lucide-react";
 
 export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
   const menuItems = [
-    { id: "overview", label: "Dashboard Overview", icon: LayoutDashboard },
-    { id: "quiz", label: "Add Quiz", icon: HelpCircle },
-    { id: "section", label: "Add Section & Grade", icon: Layers },
+    { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+    { id: "question", label: "Add Question", icon: BadgePlus },
+    { id: "all", label: "All Questions", icon: HelpCircle },
+    { id: "result", label: "Quiz Result", icon: UserStar },
+    { id: "quiz", label: "Add Quiz", icon: CircleStar },
+    { id: "section", label: "Grade & Section", icon: Layers },
     { id: "subjects", label: "Add Subjects", icon: BookOpen },
     { id: "students", label: "List of Students", icon: Users },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
   return (

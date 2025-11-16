@@ -22,7 +22,6 @@ export default function LoginPage({ onLogin }) {
 
   return (
     <div className="admin-body flex h-screen items-center justify-center bg-gray-100">
-      {/* Card Container */}
       <div className="bg-white/90 backdrop-blur-sm shadow-2xl rounded-2xl p-10 w-full max-w-md">
         <div className="mb-8 text-center">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">

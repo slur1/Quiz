@@ -15,6 +15,16 @@ export default function LandingPage({ onNavigateToQuizzes }) {
       .catch((err) => console.error("Error fetching quizzes:", err));
   }, []);
 
+  const navigate = useNavigate();
+
+  const handleStart = () => {
+    const randomCode = Array.from(crypto.getRandomValues(new Uint8Array(32))) // 64 chars
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    navigate(`/quiz/${randomCode}/${quizzes[0]?.quiz_id}/${randomCode}`);
+  };
+
   return (
     <>
       {/* Header */}
@@ -50,13 +60,14 @@ export default function LandingPage({ onNavigateToQuizzes }) {
           <p className="text-lg text-white mb-8">
             Challenge yourself and improve your skills with exciting quizzes.
           </p>
-          <Link to={`/quiz/1`}>
+         
           <button
+            onClick={handleStart}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-lg transition transform hover:scale-105"
           >
             Start Now
           </button>
-          </Link>
+        
         </div>
 
       {/* Quizzes Section */}

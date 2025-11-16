@@ -13,7 +13,6 @@ import Footer from "../components/Footer";
 
 import useQuizStorage from "../hooks/useQuizStorage";
 import useQuizTimer from "../hooks/useQuizTimer";
-import generateRandomCode from "../utils/generateRandomCode";
 import LogoIcon from "../components/LogoIcon";
 
 export default function QuizPage() {
@@ -55,8 +54,7 @@ export default function QuizPage() {
     if (restored) {
       if (restored.completedAt && Date.now() - restored.completedAt > 1 * 60 * 1000) {
         clearState();
-        const newCode = generateRandomCode();
-        navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
+        navigate(`/thankyou`);
         return;
       }
 
@@ -375,8 +373,7 @@ useEffect(() => {
     if (!showScore) return;
     const t = setTimeout(() => {
       clearState();
-      const newCode = generateRandomCode();
-      navigate(`/quiz/${newCode}/${quiz_id}/${newCode}`);
+      navigate(`/thankyou`);
     }, 1 * 60 * 1000);  
     return () => clearTimeout(t);
   }, [showScore, clearState, navigate, quiz_id]);

@@ -3,23 +3,23 @@ include "db_connection.php";
 
 $input = json_decode(file_get_contents("php://input"), true);
 
-if (!$input || !isset($input["quiz_no"]) || !isset($input["subject_name"]) || !isset($input["questions"])) {
+if (!$input || !isset($input["subject_id"]) || !isset($input["questions"]) || !isset($input["quiz_id"])) {
     echo json_encode(["status" => "error", "message" => "Invalid input data"]);
     exit;
 }
 
-$quiz_no = $input["quiz_no"];
-$subject_name = $input["subject_name"];
+$quiz_id = $input["quiz_id"];
+$subject_id = $input["subject_id"];
 $questions = $input["questions"];
 
 try {
     $conn->beginTransaction();
 
     $query = "INSERT INTO tbl_questions (
-        quiz_no, subject_name, question_type, question_text,
+        quiz_id, subject_id, question_type, question_text,
         choice_a, choice_b, choice_c, choice_d, correct_answer, time_limit
     ) VALUES (
-        :quiz_no, :subject_name, :question_type, :question_text,
+        :quiz_id, :subject_id, :question_type, :question_text,
         :choice_a, :choice_b, :choice_c, :choice_d, :correct_answer, :time_limit
     )";
 
@@ -46,8 +46,8 @@ try {
 
         // Execute insert query
         $stmt->execute([
-            ":quiz_no" => $quiz_no,
-            ":subject_name" => $subject_name,
+            ":quiz_id" => $quiz_id,
+            ":subject_id" => $subject_id,
             ":question_type" => $type,
             ":question_text" => $text,
             ":choice_a" => $choiceA,
