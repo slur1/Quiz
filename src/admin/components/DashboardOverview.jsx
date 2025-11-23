@@ -18,8 +18,11 @@ export default function DashboardOverview() {
   });
 
   return (
+    
     <div className="space-y-6">
-      
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+              Dashboard Overview
+      </h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">

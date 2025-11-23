@@ -87,6 +87,10 @@ export default function StudentsList() {
   };
 
   return (
+   <>
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+        List of Students
+      </h1>
     <div className="space-y-6">
       {!showForm && (
         <button
@@ -299,5 +303,6 @@ export default function StudentsList() {
         </div>
       )}
     </div>
+  </>
   );
 }

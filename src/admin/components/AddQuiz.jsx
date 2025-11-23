@@ -23,6 +23,10 @@ export default function AddQuiz() {
   }
 
   return (
+   <>
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+        Add Quiz
+      </h1>
     <div className="space-y-6">
       
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm w-full max-w-lg">
@@ -96,5 +100,6 @@ export default function AddQuiz() {
         </div>
       )}
     </div>
+  </>
   )
 }

@@ -24,6 +24,10 @@ export default function AddSection() {
   };
 
   return (
+     <>
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+        Grade & Section
+      </h1>
     <div className="space-y-6">
       
       <div className="flex gap-2 border-b border-gray-200">
@@ -142,5 +146,6 @@ export default function AddSection() {
         </div>
       )}
     </div>
+  </>
   );
 }

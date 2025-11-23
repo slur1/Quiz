@@ -149,7 +149,12 @@ export default function AddQuestion() {
   };
 
   return (
+    <>
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+        Add Questions
+      </h1>
     <div className="px-4">
+      
       <div className="max-w-4xl mt-10 bg-white rounded-2xl border border-gray-300 shadow-lg p-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4">
           Add Questions
@@ -385,6 +390,6 @@ export default function AddQuestion() {
           </div>
         </form>
       </div>
-    </div>
+    </div></>
   );
 }

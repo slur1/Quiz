@@ -41,6 +41,38 @@ export default function QuizDescription() {
     fetchQuiz();
   }, [quiz_id]);
 
+const [subjects, setSubjects] = useState([]);
+const [selectedSubject, setSelectedSubject] = useState("");
+const [sections, setSections] = useState([]);
+
+useEffect(() => {
+  const fetchSubjects = async () => {
+    try {
+      const res = await getFromEndpoint("fetch_subjects.php"); 
+      if (res.data.status === "success") {
+        setSubjects(res.data.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  fetchSubjects();
+}, []);
+
+useEffect(() => {
+  if (!selectedSubject) return;
+  const fetchSections = async () => {
+    try {
+      const res = await getFromEndpoint(`fetch_sections.php?subject_id=${selectedSubject.trim()}`);
+      if (res.data.status === "success") {
+        setSections(res.data.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  fetchSections();
+}, [selectedSubject]);
 
   const [Error, setError] = useState("");
   const navigate = useNavigate();
@@ -234,6 +266,24 @@ const handleSubmit = async (e) => {
               </div>
 
               <div>
+                <label className="block text-white font-semibold mb-2">Subject</label>
+                <select
+                  required
+                  value={selectedSubject}
+                  onChange={(e) => {
+                    setSelectedSubject(e.target.value);
+                    setFormData({ ...formData, section: "" });  
+                  }}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-50 transition-all p-px"
+                >
+                  <option value="">Select a subject</option>
+                  {subjects.map((sub) => (
+                    <option key={sub.subject_id} value={sub.subject_id}>{sub.subject_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-white font-semibold mb-2">Section</label>
                 <select
                   required
@@ -244,9 +294,11 @@ const handleSubmit = async (e) => {
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-50 transition-all p-px"
                 >
                   <option value="">Select a section</option>
-                  <option value="1">8 - Matthias</option>
-                  <option value="2">8 - Micah</option>
-                  <option value="3">8 - Obadiah</option>
+                  {sections.map((sec) => (
+                    <option key={sec.id} value={sec.id}>
+                      {sec.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

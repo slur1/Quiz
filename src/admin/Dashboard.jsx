@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import DashboardOverview from "./components/DashboardOverview";
 import AddQuiz from "./components/AddQuiz";
@@ -6,83 +6,35 @@ import AddSection from "./components/AddSection";
 import AddSubjects from "./components/AddSubjects";
 import StudentsList from "./components/StudentsList";
 import AddQuestion from "./AddQuestion";
+import QuizSummaryBySection from "./components/QuizSummary";
+import QuizStudentList from "./components/QuizStudentList";
+import Error from "../Pages/404";
+import Ongoing from "./components/OnGoing";
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState(
-    localStorage.getItem("activeTab") || "overview"
-  );
-
+  const navigate = useNavigate();
   const handleLogout = () => {
     alert("Logged out!");
-    localStorage.removeItem("activeTab");
+    navigate("/admin"); 
   };
-
-  useEffect(() => {
-    localStorage.setItem("activeTab", activeTab);
-  }, [activeTab]);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onLogout={handleLogout}
-      />
+      <Sidebar onLogout={handleLogout} />
 
       <main className="flex-1 p-6 overflow-y-auto">
-        {activeTab === "overview" && (
-          <>
-            <h1 className="text-2xl font-bold mb-6 text-gray-800">
-              Dashboard Overview
-            </h1>
-            <DashboardOverview />
-          </>
-        )}
-
-        {activeTab === "question" && (
-          <>
-            <h1 className="text-2xl font-bold mb-6 text-gray-800">
-              Add Question
-            </h1>
-            <AddQuestion />
-          </>
-        )}
-
-        {activeTab === "quiz" && (
-          <>
-            <h1 className="text-2xl font-bold mb-6 text-gray-800">
-              Add Quiz
-            </h1>
-            <AddQuiz />
-          </>
-        )}
-
-        {activeTab === "section" && (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">
-              Add Section & Grade
-            </h1>
-            <AddSection />
-          </div>
-        )}
-
-        {activeTab === "subjects" && (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">
-              Add Subjects
-            </h1>
-            <AddSubjects />
-          </div>
-        )}
-
-        {activeTab === "students" && (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">
-              Students List
-            </h1>
-            <StudentsList />
-          </div>
-        )}
+        <Routes>
+          <Route path="*" element={<Ongoing />} />
+          <Route path="overview" element={<DashboardOverview />} />
+          <Route path="question" element={<AddQuestion />} />
+          <Route path="all" element={<AddQuestion />} />
+          <Route path="summary" element={<QuizSummaryBySection />} />
+          <Route path="quiz" element={<AddQuiz />} />
+          <Route path="section" element={<AddSection />} />
+          <Route path="subjects" element={<AddSubjects />} />
+          <Route path="students" element={<StudentsList />} />
+          <Route path="quizlist" element={<QuizStudentList />} />
+        </Routes>
       </main>
     </div>
   );

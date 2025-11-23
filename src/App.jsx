@@ -1,13 +1,14 @@
 import LandingPage from "./Pages/LandingPage";
 import QuizDescription from "./Pages/QuizDescription";
 import QuizPage from "./Pages/QuizPage";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Error from "./Pages/404";
 import AddQuestion from "./admin/AddQuestion";
 import PixelLoader from "./components/PixelLoader";
 import LoginPage from "./admin/LoginPage";
 import Dashboard from "./admin/Dashboard";
 import ThankYou from "./components/ThankYouPage";
+import QuizStudentList from "./admin/components/QuizStudentList";
 
 
 export default function App() {
@@ -23,7 +24,9 @@ export default function App() {
 
         {/* Admin Routes */}
         <Route path="/admin" element={<LoginPage onLogin={(u, p) => console.log(u, p)} />} />
-        <Route path="/admin/dashboard" element={<Dashboard />} />
+        <Route path="/admin/*" element={<Dashboard />} />
+        <Route path="/admin/quiz/summary/:quiz_id" element={<QuizStudentList />} />
+        <Route path="/admin/main" element={<Navigate to="/dashboard/overview" />} />
 
         {/* Fallback */}
         <Route path="*" element={<Error />} />
