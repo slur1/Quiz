@@ -9,6 +9,7 @@ import LoginPage from "./admin/LoginPage";
 import Dashboard from "./admin/Dashboard";
 import ThankYou from "./components/ThankYouPage";
 import QuizStudentList from "./admin/components/QuizStudentList";
+import QuizResult from "./admin/components/QuizStudentResult";
 
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/admin" element={<LoginPage onLogin={(u, p) => console.log(u, p)} />} />
         <Route path="/admin/*" element={<Dashboard />} />
         <Route path="/admin/quiz/summary/:quiz_id" element={<QuizStudentList />} />
+        <Route path="/admin/quiz/answers/:quiz_id/:student_id" element={<QuizResult />} />
         <Route path="/admin/main" element={<Navigate to="/dashboard/overview" />} />
 
         {/* Fallback */}

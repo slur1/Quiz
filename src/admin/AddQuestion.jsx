@@ -192,16 +192,18 @@ export default function AddQuestion() {
             required
           >
             <option value="" disabled>-- Select Quiz Number --</option>
-            {quizzes.map((quiz) => (
-              <option
-                key={quiz.quiz_id}
-                value={quiz.quiz_id}
-                disabled={disabledQuizIds.includes(quiz.quiz_id)} 
-              >
-                Quiz #{quiz.quiz_no} - {quiz.title}{" "}
-                {disabledQuizIds.includes(quiz.quiz_id) ? "(Already has questions)" : ""}
-              </option>
-            ))}
+            {quizzes
+              .filter((quiz) => Number(quiz.subject_id) === Number(subject)) 
+              .map((quiz) => (
+                <option
+                  key={quiz.quiz_id}
+                  value={quiz.quiz_id}
+                  disabled={disabledQuizIds.includes(quiz.quiz_id)}
+                >
+                  Quiz #{quiz.quiz_no} - {quiz.title}{" "}
+                  {disabledQuizIds.includes(quiz.quiz_id) ? "(Already has questions)" : ""}
+                </option>
+              ))}
           </select>
         </div>
 

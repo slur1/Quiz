@@ -8,8 +8,9 @@ import StudentsList from "./components/StudentsList";
 import AddQuestion from "./AddQuestion";
 import QuizSummaryBySection from "./components/QuizSummary";
 import QuizStudentList from "./components/QuizStudentList";
-import Error from "../Pages/404";
 import Ongoing from "./components/OnGoing";
+import Settings from "./components/Settings";
+import QuizResult from "./components/QuizStudentResult";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -34,6 +35,8 @@ export default function Dashboard() {
           <Route path="subjects" element={<AddSubjects />} />
           <Route path="students" element={<StudentsList />} />
           <Route path="quizlist" element={<QuizStudentList />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="answers" element={<QuizResult />} />
         </Routes>
       </main>
     </div>

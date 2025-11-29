@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "./Sidebar";
 import { getFromEndpoint } from "../../components/apiService";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 export default function QuizStudentList() {
   const { quiz_id } = useParams(); 
@@ -9,6 +9,7 @@ export default function QuizStudentList() {
   const [selectedSection, setSelectedSection] = useState("All Sections");
   const [loading, setLoading] = useState(true);
   const [subjects, setSubjects] = useState([]);
+  const navigate = useNavigate();
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -112,6 +113,7 @@ export default function QuizStudentList() {
               <table className="w-full border border-gray-300 bg-white rounded-lg overflow-hidden mb-4">
                 <thead>
                   <tr className="bg-gray-200 text-left text-gray-700">
+                    <th className="p-3 border-b border-gray-300">No.</th>
                     <th className="p-3 border-b border-gray-300">Student Name</th>
                     <th className="p-3 border-b border-gray-300">Section</th>
                     <th className="p-3 border-b border-gray-300">Score</th>
@@ -119,8 +121,17 @@ export default function QuizStudentList() {
                 </thead>
                 <tbody>
                   {paginatedStudents.map((stud, i) => (
-                    <tr key={i} className="border-b border-gray-300">
-                      <td className="p-3">{stud.firstname} {stud.lastname}</td>
+                    <tr
+                      key={i}
+                      onClick={() =>
+                        navigate(`/admin/quiz/answers/${quiz_id}/${stud.student_id}`)
+                      }
+                      className="border-b border-gray-300 cursor-pointer hover:bg-gray-100 transition"
+                    >
+                       <td className="py-3 px-4 text-gray-700">
+                        {(currentPage - 1) * itemsPerPage + i + 1}
+                      </td>
+                      <td className="p-3">{stud.lastname}, {stud.firstname}</td>
                       <td className="p-3">{stud.section_name}</td>
                       <td className="p-3">{stud.total_score}</td>
                     </tr>

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import Footer from "../components/Footer";
 import LogoIcon from "../components/LogoIcon";
-import LogoCSS from "../assets/CSS2.png";
+import LogoCSS from "../assets/pixel1.png";
 
 export default function ThankYou() {
 

@@ -3,7 +3,7 @@ export default function QuizResult({ score, onQuit}) {
   const percentage = score.totalPossible ? Math.round((score.totalScore / score.totalPossible) * 100) : 0;
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center bg-slate-900 text-white">
+    <div className="min-h-[80vh] flex items-center justify-center bg-slate-900 text-white px-5">
       <div className="max-w-md w-full p-8 bg-slate-800 rounded-2xl border border-slate-700 text-center">
         <div className="text-6xl mb-4">🏆</div>
         <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>

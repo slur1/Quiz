@@ -59,11 +59,16 @@ export default function QuizPage() {
       }
 
       setCurrentQuestion(restored.currentQuestion ?? 0);
-      setUserAnswers(restored.userAnswers ?? []);
+      if (!restored.showScore && !restored.showThankYou) {
+        setUserAnswers(restored.userAnswers ?? []);
+      } else {
+        setUserAnswers([]); // prevent auto-highlighting
+      }
 
       if (restored.showScore) {
         setShowScore(true);
-        setScore(restored.score ?? { totalScore: 0, totalPossible: 0 });
+        setScore(restored.score);
+        return;
       }
       if (restored.showThankYou) setShowThankYou(true);
 
@@ -145,7 +150,7 @@ export default function QuizPage() {
 
   
   useEffect(() => {
-    if (!loading && quizData.length > 0) {
+      if (loading || showScore || showThankYou) return;
       saveState({
         currentQuestion,
         userAnswers,
@@ -154,7 +159,6 @@ export default function QuizPage() {
         showThankYou,
         score,
       });
-    }
   }, [currentQuestion, userAnswers, timeLeft, loading, showScore, showThankYou, score, saveState, quizData.length]);
 
   useEffect(() => {
@@ -182,37 +186,58 @@ export default function QuizPage() {
     });
   };
 
-
-
-  const computeScore = () => {
+  function computeScore() {
     let totalScore = 0;
     let totalPossible = 0;
-
+    const clean = (str) => {
+      return str
+        .toLowerCase()
+        .trim()
+        .replace(/[.,-]/g, "")   
+        .replace(/\s+/g, " ");   
+    };
     quizData.forEach((q, i) => {
       const ans = userAnswers[i];
       if (q.type === "multiple-choice") {
         totalPossible += 1;
         if (ans === q.correct) totalScore += 1;
-      } else if (q.type === "identification") {
+      }
+
+      else if (q.type === "identification") {
         totalPossible += 1;
-        if ((ans ?? "").toString().toLowerCase().trim() === (q.answer ?? "").toString().toLowerCase().trim()) {
+
+        if (!ans) return;
+
+        const cleanUser = clean(ans);
+        const cleanCorrect = clean(q.answer);
+
+        if (cleanUser === cleanCorrect) {
           totalScore += 1;
         }
-      } else if (q.type === "enumeration") {
-        const correctAnswers = (q.answers || []).map(a => a.toLowerCase().trim()).filter(Boolean);
-        totalPossible += correctAnswers.length;
+      }
 
-        let userInput = [];
-        if (Array.isArray(ans)) userInput = ans.map(a => a.toLowerCase().trim());
-        else if (typeof ans === "string") userInput = ans.split(/[\s,]+/).map(a => a.toLowerCase().trim()).filter(Boolean);
+      else if (q.type === "enumeration") {
+        const correctList = (q.answers || []).map(clean);
+        totalPossible += correctList.length;
 
-        const matchCount = correctAnswers.filter(c => userInput.includes(c)).length;
-        totalScore += matchCount;
+        if (!ans) return;
+
+        const userList = ans
+          .split(/[\n,]+/)       
+          .map(clean)
+          .filter(Boolean);
+
+        correctList.forEach((correctAnswer) => {
+          if (userList.includes(correctAnswer)) {
+            totalScore += 1;
+          }
+        });
       }
     });
 
     return { totalScore, totalPossible };
-  };
+  }
+
 
   const handleSubmit = async () => {
     const { totalScore, totalPossible } = computeScore();
@@ -222,11 +247,32 @@ export default function QuizPage() {
     const resultData = {
       student_id,
       quiz_id,
-      answers: quizData.map((q, i) => ({
-        question: q.question,
-        type: q.type,
-        user_answer: userAnswers[i] ?? "",
-      })),
+      answers: quizData.map((q, i) => {
+        const userAnsIndex = userAnswers[i];
+        let userAnswerText = "";
+
+        if (q.type === "multiple-choice" && userAnsIndex != null) {
+          userAnswerText = q.options[userAnsIndex] ?? "";
+        } else if (q.type === "identification") {
+          userAnswerText = userAnswers[i] ?? "";
+        } else if (q.type === "enumeration") {
+          userAnswerText = userAnswers[i] ?? "";
+        }
+
+        return {
+          question: q.question,
+          type: q.type,
+          user_answer: userAnswerText,
+          correct_answer:
+            q.type === "multiple-choice"
+              ? q.options[q.correct] ?? ""    
+              : q.type === "identification"
+              ? q.answer ?? ""
+              : q.type === "enumeration"
+              ? (q.answers || []).join(", ")
+              : "",
+        };
+      }),
       total_score: totalScore,
       total_possible: totalPossible,
     };

@@ -12,7 +12,7 @@ export default function StudentsList() {
     gender: "",
     section: "",
   });
-
+  const [sectionFilter, setSectionFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -66,12 +66,17 @@ export default function StudentsList() {
       console.error("Error deleting student:", error);
     }
   };
+  const sectionOptions = ["All", ...new Set(students.map(s => s.section || s.section_name))];
 
-  // Pagination logic
+  const filteredStudents =
+  sectionFilter === "All"
+    ? students
+    : students.filter(s => (s.section || s.section_name) === sectionFilter);
+
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
-  const currentStudents = students.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(students.length / rowsPerPage);
+  const totalPages = Math.ceil(filteredStudents.length / rowsPerPage);
+  const currentStudents = filteredStudents.slice(indexOfFirst, indexOfLast);
 
   const handleRowsPerPageChange = (e) => {
     setRowsPerPage(Number(e.target.value));
@@ -215,18 +220,39 @@ export default function StudentsList() {
               Students List ({students.length})
             </h3>
 
-            <div className="flex items-center gap-2">
-              <label>Rows per page:</label>
-              <select
-                value={rowsPerPage}
-                onChange={handleRowsPerPageChange}
-                className="border border-gray-300 rounded-lg px-2 py-1"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
+            <div className="flex items-center gap-4">
+              {/* Section Filter */}
+              <div className="flex items-center gap-2">
+                <label>Filter by Section:</label>
+                <select
+                  value={sectionFilter}
+                  onChange={(e) => {
+                    setSectionFilter(e.target.value);
+                    setCurrentPage(1);  
+                  }}
+                  className="border border-gray-300 rounded-lg px-2 py-1"
+                >
+                  {sectionOptions.map((sec, index) => (
+                    <option key={index} value={sec}>
+                      {sec}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Rows Per Page */}
+              <div className="flex items-center gap-2">
+                <label>Rows per page:</label>
+                <select
+                  value={rowsPerPage}
+                  onChange={handleRowsPerPageChange}
+                  className="border border-gray-300 rounded-lg px-2 py-1"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
             </div>
           </div>
 
