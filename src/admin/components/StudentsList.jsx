@@ -262,7 +262,6 @@ export default function StudentsList() {
                 <tr className="border-b border-gray-300 bg-gray-50">
                   <th className="text-left py-3 px-4">No.</th>
                   <th className="text-left py-3 px-4">Name</th>
-                  <th className="text-left py-3 px-4">Email</th>
                   <th className="text-left py-3 px-4">Gender</th>
                   <th className="text-left py-3 px-4">Section</th>
                   <th className="text-left py-3 px-4">Action</th>
@@ -275,9 +274,8 @@ export default function StudentsList() {
                       {(currentPage - 1) * rowsPerPage + index + 1}
                     </td>
                     <td className="py-3 px-4 text-gray-800">
-                      {student.lastname}, {student.firstname}
+                      {student.lastname}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">{student.email}</td>
                     <td className="py-3 px-4 text-gray-700">{student.gender}</td>
                     <td className="py-3 px-4 text-gray-700">{student.section_name || student.section}</td>
                     <td className="py-3 px-4">

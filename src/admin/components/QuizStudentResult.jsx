@@ -80,6 +80,9 @@ export default function QuizResult() {
                     <strong>Student:</strong> {result.firstname} {result.lastname}
                 </p>
                 <p className="text-gray-700 text-2xl">
+                    <strong>Section:</strong> {result.section_name}
+                </p>
+                <p className="text-gray-700 text-2xl">
                     <strong>Score:</strong> {result.total_score}
                 </p>
             </div>

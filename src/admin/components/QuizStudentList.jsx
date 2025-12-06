@@ -4,16 +4,29 @@ import { getFromEndpoint } from "../../components/apiService";
 import { useParams, useNavigate } from "react-router-dom";
 
 export default function QuizStudentList() {
-  const { quiz_id } = useParams(); 
+  const { quiz_id } = useParams();
   const [students, setStudents] = useState([]);
   const [selectedSection, setSelectedSection] = useState("All Sections");
   const [loading, setLoading] = useState(true);
   const [subjects, setSubjects] = useState([]);
   const navigate = useNavigate();
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortOption, setSortOption] = useState("newest");
+
+  // Restore saved values
+  useEffect(() => {
+    const savedFilter = localStorage.getItem("quiz_section_filter");
+    const savedPage = localStorage.getItem("quiz_page");
+    const savedRows = localStorage.getItem("quiz_rows");
+    const savedSort = localStorage.getItem("quiz_sort");
+
+    if (savedFilter) setSelectedSection(savedFilter);
+    if (savedPage) setCurrentPage(Number(savedPage));
+    if (savedRows) setItemsPerPage(Number(savedRows));
+    if (savedSort) setSortOption(savedSort);
+  }, []);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -34,7 +47,7 @@ export default function QuizStudentList() {
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const res = await getFromEndpoint(`fetch_subject_quiz.php?quiz_id=${quiz_id}`); 
+        const res = await getFromEndpoint(`fetch_subject_quiz.php?quiz_id=${quiz_id}`);
         if (res.data.status === "success") setSubjects(res.data.data);
       } catch (err) {
         console.error(err);
@@ -44,7 +57,7 @@ export default function QuizStudentList() {
   }, [quiz_id]);
 
   const sections = useMemo(() => {
-    const uniqueSections = Array.from(new Set(students.map(s => s.section_name)));
+    const uniqueSections = Array.from(new Set(students.map((s) => s.section_name)));
     return ["All Sections", ...uniqueSections];
   }, [students]);
 
@@ -53,8 +66,29 @@ export default function QuizStudentList() {
       ? students
       : students.filter((s) => s.section_name === selectedSection);
 
-  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
-  const paginatedStudents = filteredStudents.slice(
+  // SORTING LOGIC
+  const sortedStudents = useMemo(() => {
+    const data = [...filteredStudents];
+
+    if (sortOption === "newest") {
+      return data.sort((a, b) => new Date(b.date_submitted) - new Date(a.date_submitted));
+    }
+    if (sortOption === "oldest") {
+      return data.sort((a, b) => new Date(a.date_submitted) - new Date(b.date_submitted));
+    }
+    if (sortOption === "highscore") {
+      return data.sort((a, b) => b.total_score - a.total_score);
+    }
+    if (sortOption === "lowscore") {
+      return data.sort((a, b) => a.total_score - b.total_score);
+    }
+
+    return data;
+  }, [filteredStudents, sortOption]);
+
+  const totalPages = Math.ceil(sortedStudents.length / itemsPerPage);
+
+  const paginatedStudents = sortedStudents.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -73,50 +107,83 @@ export default function QuizStudentList() {
         </h1>
 
         <div className="max-w-4xl bg-white shadow-xl border border-gray-300 rounded-xl p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">
-            {subjects[0]?.subject_name} 
+          <h1 className="text-2xl font-bold text-gray-900">
+            {subjects[0]?.subject_name}
           </h1>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1 mt-2">
-            <strong>Quiz {subjects[0]?.quiz_no}:</strong> {subjects[0]?.title} 
+          <h1 className="text-xl font-bold text-gray-900 mt-2">
+            <strong>Quiz {subjects[0]?.quiz_no}:</strong> {subjects[0]?.title}
           </h1>
-          <p className="text-gray mb-4 text-[20px] mt-3">
-            🧑‍🎓 Students Who Took This Quiz
-          </p>
-          <div className="mb-4 flex items-center gap-3">
-            <label className="text-gray-700 font-semibold">Filter by Section:</label>
+
+          <div className="mt-4 mb-4 flex flex-wrap gap-4 items-center">
+
+            {/* Section Filter */}
+            <label className="font-semibold">Filter by Section:</label>
             <select
               className="border rounded-lg px-3 py-2 shadow-sm"
               value={selectedSection}
-              onChange={(e) => { setSelectedSection(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSelectedSection(e.target.value);
+                localStorage.setItem("quiz_section_filter", e.target.value);
+                setCurrentPage(1);
+                localStorage.setItem("quiz_page", "1");
+              }}
             >
-              {sections.map((sec, index) => (
-                <option key={index} value={sec}>{sec}</option>
+              {sections.map((sec, i) => (
+                <option key={i} value={sec}>
+                  {sec}
+                </option>
               ))}
             </select>
 
-            <label className="text-gray-700 font-semibold ml-4">Rows per page:</label>
+            {/* Sort Filter */}
+            <label className="font-semibold ml-4">Sort:</label>
+            <select
+              className="border rounded-lg px-3 py-2 shadow-sm"
+              value={sortOption}
+              onChange={(e) => {
+                setSortOption(e.target.value);
+                localStorage.setItem("quiz_sort", e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="highscore">Highest Score</option>
+              <option value="lowscore">Lowest Score</option>
+            </select>
+
+            {/* Rows per page */}
+            <label className="font-semibold ml-4">Rows per page:</label>
             <select
               className="border rounded-lg px-3 py-2 shadow-sm"
               value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setItemsPerPage(val);
+                localStorage.setItem("quiz_rows", val);
+                setCurrentPage(1);
+                localStorage.setItem("quiz_page", "1");
+              }}
             >
-              {[5, 10, 25, 50].map((num) => (
-                <option key={num} value={num}>{num}</option>
+              {[5, 10, 25, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
               ))}
             </select>
           </div>
 
           {loading ? (
-            <p className="text-gray-600 text-center">Loading students...</p>
+            <p className="text-center text-gray-600">Loading students...</p>
           ) : (
             <>
-              <table className="w-full border border-gray-300 bg-white rounded-lg overflow-hidden mb-4">
+              <table className="w-full border border-gray-300 bg-white rounded-lg overflow-hidden">
                 <thead>
-                  <tr className="bg-gray-200 text-left text-gray-700">
-                    <th className="p-3 border-b border-gray-300">No.</th>
-                    <th className="p-3 border-b border-gray-300">Student Name</th>
-                    <th className="p-3 border-b border-gray-300">Section</th>
-                    <th className="p-3 border-b border-gray-300">Score</th>
+                  <tr className="bg-gray-200">
+                    <th className="p-3">No.</th>
+                    <th className="p-3">Student Name</th>
+                    <th className="p-3">Section</th>
+                    <th className="p-3">Score</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -126,12 +193,14 @@ export default function QuizStudentList() {
                       onClick={() =>
                         navigate(`/admin/quiz/answers/${quiz_id}/${stud.student_id}`)
                       }
-                      className="border-b border-gray-300 cursor-pointer hover:bg-gray-100 transition"
+                      className="border-b hover:bg-gray-100 cursor-pointer"
                     >
-                       <td className="py-3 px-4 text-gray-700">
+                      <td className="p-3">
                         {(currentPage - 1) * itemsPerPage + i + 1}
                       </td>
-                      <td className="p-3">{stud.lastname}, {stud.firstname}</td>
+                      <td className="p-3">
+                        {stud.lastname}, {stud.firstname}
+                      </td>
                       <td className="p-3">{stud.section_name}</td>
                       <td className="p-3">{stud.total_score}</td>
                     </tr>
@@ -139,29 +208,34 @@ export default function QuizStudentList() {
                 </tbody>
               </table>
 
-              {paginatedStudents.length === 0 && (
-                <p className="text-center text-gray-600">No students found.</p>
-              )}
-
               <div className="flex justify-between items-center mt-4">
-                <p className="text-gray-800 font-semibold">
-                  Total Students: {filteredStudents.length}
-                </p>
-                <div className="flex items-center gap-2">
+                <span>Total Students: {sortedStudents.length}</span>
+
+                <div className="flex gap-2">
                   <button
-                    className="px-3 py-1 border rounded disabled:opacity-50"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="px-3 py-1 border rounded"
                     disabled={currentPage === 1}
+                    onClick={() => {
+                      const newPage = Math.max(1, currentPage - 1);
+                      setCurrentPage(newPage);
+                      localStorage.setItem("quiz_page", newPage);
+                    }}
                   >
                     Previous
                   </button>
+
                   <span>
                     Page {currentPage} of {totalPages || 1}
                   </span>
+
                   <button
-                    className="px-3 py-1 border rounded disabled:opacity-50"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="px-3 py-1 border rounded"
+                    disabled={currentPage === totalPages}
+                    onClick={() => {
+                      const newPage = Math.min(totalPages, currentPage + 1);
+                      setCurrentPage(newPage);
+                      localStorage.setItem("quiz_page", newPage);
+                    }}
                   >
                     Next
                   </button>

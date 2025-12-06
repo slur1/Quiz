@@ -320,21 +320,19 @@ const handleNext = useCallback(() => {
 }, [currentQuestion, quizData, stopTimer, handleSubmit]);
 
 
-  useEffect(() => {
+useEffect(() => {
+
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   let focusRecentlyLost = false;
+
   const handleFocusLoss = () => {
     if (!showScore && !showThankYou && !focusRecentlyLost) {
       focusRecentlyLost = true;
-      setFocusLossCount((count) => count + 1);
+      setFocusLossCount((c) => c + 1);
       setIsBlurred(true);
-
-      setTimeout(() => {
-        focusRecentlyLost = false;
-      }, 1000);
+      setTimeout(() => (focusRecentlyLost = false), 800);
     }
-  };
-  const handleFocusGain = () => {
-    setIsBlurred(false);
   };
 
   const handleVisibilityChange = () => {
@@ -345,41 +343,30 @@ const handleNext = useCallback(() => {
       !focusRecentlyLost
     ) {
       focusRecentlyLost = true;
-      setFocusLossCount((count) => count + 1);
+      setFocusLossCount((c) => c + 1);
       setIsBlurred(true);
-
-      setTimeout(() => {
-        focusRecentlyLost = false;
-      }, 1000);
-    } else if (document.visibilityState === "visible") {
-      setIsBlurred(false);
-    }
-  };
-
-  const handleResize = () => {
-    if (!showScore && !showThankYou && !focusRecentlyLost) {
-      focusRecentlyLost = true;
-      setFocusLossCount((count) => count + 1);
-      setIsBlurred(true);
-
-      setTimeout(() => {
-        focusRecentlyLost = false;
-      }, 1000);
+      setTimeout(() => (focusRecentlyLost = false), 800);
     }
   };
 
   window.addEventListener("blur", handleFocusLoss);
-  window.addEventListener("focus", handleFocusGain);
-  window.addEventListener("resize", handleResize);
   document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  // ❗ Only detect resize cheating ON DESKTOP
+  if (!isMobile) {
+    window.addEventListener("resize", handleFocusLoss);
+  }
 
   return () => {
     window.removeEventListener("blur", handleFocusLoss);
-    window.removeEventListener("focus", handleFocusGain);
-    window.removeEventListener("resize", handleResize);
     document.removeEventListener("visibilitychange", handleVisibilityChange);
+    if (!isMobile) {
+      window.removeEventListener("resize", handleFocusLoss);
+    }
   };
+  
 }, [showScore, showThankYou]);
+
 
 useEffect(() => {
   if (focusLossCount === 1) {
@@ -390,6 +377,8 @@ useEffect(() => {
       confirmButtonText: "OK",
       background: "#334155",
       color: "#ffffff",
+    }).then(() => {
+      setIsBlurred(false);  
     });
   } else if (focusLossCount >= 2) {
     Swal.fire({
@@ -399,7 +388,10 @@ useEffect(() => {
       confirmButtonText: "OK",
       background: "#334155",
       color: "#ffffff",
-    }).then(() => handleSubmit());
+    }).then(() => {
+      setIsBlurred(false);   
+      handleSubmit();
+    });
   }
 }, [focusLossCount]);
 
@@ -493,7 +485,6 @@ useEffect(() => {
           }`}
         >
           <div className="min-h-[92vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
-            <LogoIcon/>
 
             <div className="max-w-2xl mx-auto">
               <QuizHeader

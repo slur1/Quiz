@@ -30,7 +30,7 @@ export default function LandingPage({ onNavigateToQuizzes }) {
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-blue-600">Quizo</h1>
+          <h1 className="text-3xl font-bold text-blue-600">Pixel</h1>
           <nav className="flex items-center gap-8">
             <a href="#features" className="text-gray-700 hover:text-blue-600 transition">
               Features
@@ -54,7 +54,7 @@ export default function LandingPage({ onNavigateToQuizzes }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-5xl font-bold text-white mb-6 text-balance">Test Your Knowledge!</h2>
           <p className="text-xl text-white mb-4">
-            Welcome to <span className="font-semibold text-blue-600">Quizo</span> — a fun and interactive way to
+            Welcome to <span className="font-semibold text-blue-600">Pixel</span> — a fun and interactive way to
             learn while playing!
           </p>
           <p className="text-lg text-white mb-8">

@@ -11,9 +11,10 @@ if ($quiz_id <= 0 || $student_id <= 0) {
 
 try {
     $stmt = $conn->prepare("
-        SELECT s.firstname, s.lastname, q.total_score, q.answers
+        SELECT s.firstname, s.lastname, q.total_score, q.answers, sec.section_name
         FROM tbl_quiz_results q
         JOIN tbl_students s ON q.student_id = s.student_id
+        JOIN tbl_sections sec ON s.section_id = sec.section_id
         WHERE q.quiz_id = ? AND q.student_id = ?
         LIMIT 1
     ");
